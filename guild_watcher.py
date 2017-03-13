@@ -121,8 +121,8 @@ def announce_changes(new_members, removed_members):
     r = requests.post(WEBHOOK_URL, data=json.dumps(body), headers={"Content-Type": "application/json"})
 
 if __name__ == "__main__":
-    guild_data = load_data("guild.data")
     while True:
+        guild_data = load_data("guild.data")
         if guild_data is None:
             print("No previous data found. Saving current data.")
             guild_data = get_guild_info(GUILD_NAME)
