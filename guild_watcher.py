@@ -71,7 +71,7 @@ def get_guild_info(name, tries = 5):
                 if rank not in guild["ranks"]:
                     guild["ranks"].append(rank)
                 last_rank = rank
-                name = requests.utils.unquote(name)
+                name = requests.utils.unquote(name).replace("+", "")
                 joined = joined.replace('&#160;', '-')
                 guild['members'].append({'rank': rank, 'name': name, 'title': title,
                                          'vocation': vocation, 'level': level, 'joined': joined})
@@ -114,7 +114,7 @@ def announce_changes(new_members, removed_members):
                                                                                             m["joined"]
                                                                                             )
                                 for m in removed_members]
-        title = "Member left" if len(removed_members_list) == 1 else "Members left"
+        title = "Member left or kicked" if len(removed_members_list) == 1 else "Members left or kicked"
         new = {"color": 16711680, "title": title, "description": "\n".join(removed_members_list)}
         body["embeds"].append(new)
 
