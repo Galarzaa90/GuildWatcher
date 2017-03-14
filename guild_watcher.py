@@ -71,7 +71,7 @@ def get_guild_info(name, tries = 5):
                 if rank not in guild["ranks"]:
                     guild["ranks"].append(rank)
                 last_rank = rank
-                name = requests.utils.unquote(name).replace("+", "")
+                name = requests.utils.unquote(name).replace("+", " ")
                 joined = joined.replace('&#160;', '-')
                 guild['members'].append({'rank': rank, 'name': name, 'title': title,
                                          'vocation': vocation, 'level': level, 'joined': joined})
@@ -118,7 +118,7 @@ def announce_changes(new_members, removed_members):
         new = {"color": 16711680, "title": title, "description": "\n".join(removed_members_list)}
         body["embeds"].append(new)
 
-    r = requests.post(WEBHOOK_URL, data=json.dumps(body), headers={"Content-Type": "application/json"})
+    requests.post(WEBHOOK_URL, data=json.dumps(body), headers={"Content-Type": "application/json"})
 
 if __name__ == "__main__":
     while True:
