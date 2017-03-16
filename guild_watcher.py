@@ -161,10 +161,7 @@ if __name__ == "__main__":
             save_data(guild_file, new_guild_data)
             removed_members = []
             new_members = []
-            i = 0
             for index, member in enumerate(guild_data["members"]):
-                i += 1
-                print(i)
                 found = False
                 for _member in new_guild_data["members"]:
                     if member["name"] == _member["name"]:
