@@ -2,12 +2,18 @@ import re
 import requests
 import pickle
 import json
-
-# Name is case sensitive
 import time
 
-GUILD_NAME = "Redd Alliance"
-WEBHOOK_URL = ""
+cfg = {}
+try:
+    with open('config.json') as json_data:
+        cfg = json.load(json_data)
+except FileNotFoundError:
+    print("Missing config.json file. Check the example file.")
+    exit()
+except ValueError:
+    print("Malformed config.json file.")
+    exit()
 
 
 def save_data(file, data):
@@ -24,30 +30,28 @@ def load_data(file):
     except FileNotFoundError:
         return None
 
-def get_guild_info(name, tries = 5):
+
+def get_guild_info(name, tries=5):
     try:
-        r = requests.get("https://secure.tibia.com/community/", params={"subtopic":"guilds","page":"view","GuildName":GUILD_NAME})
+        r = requests.get("https://secure.tibia.com/community/", params={"subtopic":"guilds","page":"view","GuildName":name})
         content = r.text
     except requests.RequestException:
         if tries == 0:
-            print("Network error")
-            return None
+            return {"error": "Network"}
         else:
             tries -= 1
             return get_guild_info(name, tries)
 
     try:
-        startIndex = content.index('<div class="BoxContent"')
-        endIndex = content.index('<div id="ThemeboxesColumn" >')
-        content = content[startIndex:endIndex]
+        start_index = content.index('<div class="BoxContent"')
+        end_index = content.index('<div id="ThemeboxesColumn" >')
+        content = content[start_index:end_index]
     except ValueError:
         # Website fetch was incomplete, due to a network error
-        print("Error")
-        return
+        return {"error": "Network"}
 
     if '<div class="Text" >Error</div>' in content:
-        print("guild doesn't exists")
-        return
+        return {"error": "NotFound"}
 
     guild = {}
     # Logo URL
@@ -78,6 +82,7 @@ def get_guild_info(name, tries = 5):
 
     return guild
 
+
 vocation_emojis = {
     "Druid": "\U00002744",
     "Elder Druid": "\U00002744",
@@ -90,7 +95,7 @@ vocation_emojis = {
 }
 
 
-def announce_changes(new_members, removed_members):
+def announce_changes(webhook_url, name, new_members, removed_members):
     body = {
         "embeds": [],
     }
@@ -98,10 +103,11 @@ def announce_changes(new_members, removed_members):
         new_members_list = ["{0} (Level {1} {2}{3})".format(m["name"],
                                                             m["level"],
                                                             m["vocation"],
-                                                            vocation_emojis.get(m["vocation"],"")
+                                                            vocation_emojis.get(m["vocation"], "")
                                                             )
                             for m in new_members]
         title = "New member" if len(new_members_list) == 1 else "New members"
+        title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
         new = {"color": 361051, "title": title, "description": "\n".join(new_members_list)}
         body["embeds"].append(new)
 
@@ -109,45 +115,71 @@ def announce_changes(new_members, removed_members):
         removed_members_list = ["{0} (Level {1} {2}{3}) - Rank : {4} - Joined : {5}".format(m["name"],
                                                                                             m["level"],
                                                                                             m["vocation"],
-                                                                                            vocation_emojis.get(m["vocation"],""),
+                                                                                            vocation_emojis.get(m["vocation"], ""),
                                                                                             m["rank"],
                                                                                             m["joined"]
                                                                                             )
                                 for m in removed_members]
         title = "Member left or kicked" if len(removed_members_list) == 1 else "Members left or kicked"
+        title += " from {0}".format(name) if len(cfg["guilds"]) > 1 else ""
         new = {"color": 16711680, "title": title, "description": "\n".join(removed_members_list)}
         body["embeds"].append(new)
 
-    requests.post(WEBHOOK_URL, data=json.dumps(body), headers={"Content-Type": "application/json"})
+    requests.post(webhook_url, data=json.dumps(body), headers={"Content-Type": "application/json"})
 
 if __name__ == "__main__":
+    if cfg.get("webhook_url") is None:
+        print("Missing Webhook URL in config.json")
+        exit()
     while True:
-        guild_data = load_data("guild.data")
-        if guild_data is None:
-            print("No previous data found. Saving current data.")
-            guild_data = get_guild_info(GUILD_NAME)
-            save_data("guild.data", guild_data)
-            time.sleep(5)
-        else:
-            print("Scanning guild")
-            current_guild = get_guild_info(GUILD_NAME)
-            save_data("guild.data", current_guild)
-            _current_guild = dict(current_guild)
+        # Iterate each guild
+        for guild in cfg["guilds"]:
+            name = guild.get("name", None)
+            if name is None:
+                print("Guild missing name.")
+                time.sleep(5)
+                continue
+            guild_file = name+".data"
+            guild_data = load_data(guild_file)
+            if guild_data is None:
+                print(name, "- No previous data found. Saving current data.")
+                guild_data = get_guild_info(name)
+                error = guild_data.get("error")
+                if error is not None:
+                    print(name, "- Error:", error)
+                    continue
+                save_data(guild_file, guild_data)
+                time.sleep(5)
+                continue
+
+            print(name, "- Scanning guild")
+            new_guild_data = get_guild_info(name)
+            error = new_guild_data.get("error")
+            if error is not None:
+                print(name, "- Error:", error)
+                continue
+            save_data(guild_file, new_guild_data)
+            guild_data["members"].append({"name":"aff","vocation":"noob","level":424,"rank":"arar","joined":"never"})
             removed_members = []
             new_members = []
+            i = 0
             for index, member in enumerate(guild_data["members"]):
+                i += 1
+                print(i)
                 found = False
-                for _member in _current_guild["members"]:
+                for _member in new_guild_data["members"]:
                     if member["name"] == _member["name"]:
                         # Member still in guild, we remove it from list for faster iterating
-                        _current_guild["members"].remove(_member)
+                        new_guild_data["members"].remove(_member)
                         found = True
                         break
                 if not found:
                     print("Member no longer in guild: ", member["name"])
                     removed_members.append(member)
-            new_members = _current_guild["members"][:]
-            announce_changes(new_members, removed_members)
-            time.sleep(60*5)
+            new_members = new_guild_data["members"][:]
+            print(new_members)
+            announce_changes(cfg["webhook_url"], name, new_members, removed_members)
+            time.sleep(10)
+        time.sleep(5*60)
 
 

@@ -1,0 +1,9 @@
+{
+  "__comment__": "To use this file, rename it to config.json",
+  "webhook_url": "http://discord.webhook.url.goes.here",
+  "guilds": [
+    {"name": "Redd Alliance"},
+    {"name": "Another guild"},
+    {"name": "Yet another guild"}
+  ]
+}
