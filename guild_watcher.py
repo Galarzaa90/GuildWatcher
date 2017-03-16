@@ -159,7 +159,6 @@ if __name__ == "__main__":
                 print(name, "- Error:", error)
                 continue
             save_data(guild_file, new_guild_data)
-            guild_data["members"].append({"name":"aff","vocation":"noob","level":424,"rank":"arar","joined":"never"})
             removed_members = []
             new_members = []
             i = 0
