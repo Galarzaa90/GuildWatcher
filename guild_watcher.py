@@ -77,8 +77,8 @@ def get_guild_info(name, tries=5):
                 last_rank = rank
                 name = requests.utils.unquote(name).replace("+", " ")
                 joined = joined.replace('&#160;', '-')
-                guild['members'].append({'rank': rank, 'name': name, 'title': title,
-                                         'vocation': vocation, 'level': level, 'joined': joined})
+                guild['members'].append({'rank': rank, 'name': name, 'title': title, 'vocation': vocation,
+                                         'level': level, 'joined': joined})
 
     return guild
 
@@ -94,35 +94,47 @@ vocation_emojis = {
     "Royal Paladin": "\U0001F3F9",
 }
 
+vocation_abbreviations = {
+    "Druid": "D",
+    "Elder Druid": "ED",
+    "Knight": "K",
+    "Elite Knight": "EK",
+    "Sorcerer": "S",
+    "Master Sorcerer": "MS",
+    "Paladin": "P",
+    "Royal Paladin": "RP",
+    "None": "N",
+}
+
 
 def announce_changes(webhook_url, name, new_members, removed_members):
+    new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
+    removed_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
+                            "Rank: **{rank}** - Joined: **{joined}**"
     body = {
         "embeds": [],
     }
     if new_members:
-        new_members_list = ["{0} (Level {1} {2}{3})".format(m["name"],
-                                                            m["level"],
-                                                            m["vocation"],
-                                                            vocation_emojis.get(m["vocation"], "")
-                                                            )
-                            for m in new_members]
-        title = "New member" if len(new_members_list) == 1 else "New members"
+        title = "New member" if len(new_members) == 1 else "New members"
         title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 361051, "title": title, "description": "\n".join(new_members_list)}
+        description = ""
+        for m in new_members:
+            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
+            m["emoji"] = vocation_emojis.get(m["vocation"], "")
+            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
+            description += new_member_format.format(**m)+"\n"
+        new = {"color": 361051, "title": title, "description": description}
         body["embeds"].append(new)
-
     if removed_members:
-        removed_members_list = ["{0} (Level {1} {2}{3}) - Rank : {4} - Joined : {5}".format(m["name"],
-                                                                                            m["level"],
-                                                                                            m["vocation"],
-                                                                                            vocation_emojis.get(m["vocation"], ""),
-                                                                                            m["rank"],
-                                                                                            m["joined"]
-                                                                                            )
-                                for m in removed_members]
-        title = "Member left or kicked" if len(removed_members_list) == 1 else "Members left or kicked"
+        title = "Member left or kicked" if len(removed_members) == 1 else "Members left or kicked"
         title += " from {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16711680, "title": title, "description": "\n".join(removed_members_list)}
+        description = ""
+        for m in removed_members:
+            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
+            m["emoji"] = vocation_emojis.get(m["vocation"], "")
+            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
+            description += removed_member_format.format(**m) + "\n"
+        new = {"color": 16711680, "title": title, "description": description}
         body["embeds"].append(new)
 
     requests.post(webhook_url, data=json.dumps(body), headers={"Content-Type": "application/json"})
