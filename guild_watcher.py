@@ -107,16 +107,19 @@ vocation_abbreviations = {
 }
 
 
-def announce_changes(webhook_url, name, new_members, removed_members):
+def announce_changes(guild_config, name, new_members, removed_members):
     new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
     removed_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
                             "Rank: **{rank}** - Joined: **{joined}**"
     body = {
+        "username": guild["name"] if guild_config.get("override_name", False) else cfg.get("name"),
+        "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
         "embeds": [],
     }
     if new_members:
         title = "New member" if len(new_members) == 1 else "New members"
-        title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
+        if not guild_config.get("override_name", False):
+            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
         description = ""
         for m in new_members:
             m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
@@ -125,9 +128,11 @@ def announce_changes(webhook_url, name, new_members, removed_members):
             description += new_member_format.format(**m)+"\n"
         new = {"color": 361051, "title": title, "description": description}
         body["embeds"].append(new)
+
     if removed_members:
         title = "Member left or kicked" if len(removed_members) == 1 else "Members left or kicked"
-        title += " from {0}".format(name) if len(cfg["guilds"]) > 1 else ""
+        if not guild_config.get("override_name", False):
+            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
         description = ""
         for m in removed_members:
             m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
@@ -137,15 +142,16 @@ def announce_changes(webhook_url, name, new_members, removed_members):
         new = {"color": 16711680, "title": title, "description": description}
         body["embeds"].append(new)
 
-    requests.post(webhook_url, data=json.dumps(body), headers={"Content-Type": "application/json"})
+    requests.post(guild.get("webhook_url", cfg.get("webhook_url")), data=json.dumps(body),
+                  headers={"Content-Type": "application/json"})
 
 if __name__ == "__main__":
-    if cfg.get("webhook_url") is None:
-        print("Missing Webhook URL in config.json")
-        exit()
     while True:
         # Iterate each guild
         for guild in cfg["guilds"]:
+            if guild.get("webhook_url", cfg.get("webhook_url")) is None:
+                print("Missing Webhook URL in config.json")
+                exit()
             name = guild.get("name", None)
             if name is None:
                 print("Guild missing name.")
@@ -185,8 +191,11 @@ if __name__ == "__main__":
                     print("Member no longer in guild: ", member["name"])
                     removed_members.append(member)
             new_members = new_guild_data["members"][:]
-            print(new_members)
-            announce_changes(cfg["webhook_url"], name, new_members, removed_members)
+            if len(new_members) > 0:
+                print("New members found: "+",".join(m["name"] for m in new_members))
+            if guild["override_image"]:
+                guild["avatar_url"] = new_guild_data["logo_url"]
+            announce_changes(guild, name, new_members, removed_members)
             time.sleep(10)
         time.sleep(5*60)
 

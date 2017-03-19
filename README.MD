@@ -12,7 +12,12 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 1. On the desired channel, go to its settings and click on the **Webhooks** section.
 1. Click on **Create Webhook**.
 1. Change the bot's name and avatar to whatever you prefer.
-1. Copy the **Webhook URL** into the config file.
+    * You can also edit config.json to override the bot's username and avatar
+1. Rename **config-example.json** to **config.json** and edit it.
+    * "*name*" and "*avatar_url*" are optional parameters, they can be left blank or removed. 
+    If used, those values will be used instead of the ones set in the webhook configuration screen in discord.
+    * Add as many guilds as you like. If "*override_name*" or "*override_image*" is used, the message will show the 
+    guild's name and/or picture instead.
 1. Run the script.
 
 ## Current Features
@@ -25,7 +30,6 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 * A name change would be detected as leaving, and joining.
 
 ## Planned features
-* Better styling (character page links)
 * Announce when a member's rank changes
 * Announce when a member's title changes
 * Webhook URL configurable per guild
