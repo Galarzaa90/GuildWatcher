@@ -107,21 +107,23 @@ vocation_abbreviations = {
 }
 
 
-def announce_changes(guild_config, name, new_members, removed_members):
+def announce_changes(guild_config, name, joined, removed, promoted, demoted):
     new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
     removed_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
                             "Rank: **{rank}** - Joined: **{joined}**"
+    rank_change_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
+                            "Rank: **{rank}** - Joined: **{joined}** - To **{rank}**"
     body = {
         "username": guild["name"] if guild_config.get("override_name", False) else cfg.get("name"),
         "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
         "embeds": [],
     }
-    if new_members:
-        title = "New member" if len(new_members) == 1 else "New members"
+    if joined:
+        title = "New member" if len(joined) == 1 else "New members"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
         description = ""
-        for m in new_members:
+        for m in joined:
             m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
             m["emoji"] = vocation_emojis.get(m["vocation"], "")
             m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
@@ -129,17 +131,43 @@ def announce_changes(guild_config, name, new_members, removed_members):
         new = {"color": 361051, "title": title, "description": description}
         body["embeds"].append(new)
 
-    if removed_members:
-        title = "Member left or kicked" if len(removed_members) == 1 else "Members left or kicked"
+    if removed:
+        title = "Member left or kicked" if len(removed) == 1 else "Members left or kicked"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
         description = ""
-        for m in removed_members:
+        for m in removed:
             m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
             m["emoji"] = vocation_emojis.get(m["vocation"], "")
             m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
             description += removed_member_format.format(**m) + "\n"
         new = {"color": 16711680, "title": title, "description": description}
+        body["embeds"].append(new)
+
+    if promoted:
+        title = "Member promoted" if len(promoted) == 1 else "Members promoted"
+        if not guild_config.get("override_name", False):
+            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
+        description = ""
+        for m in promoted:
+            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
+            m["emoji"] = vocation_emojis.get(m["vocation"], "")
+            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
+            description += rank_change_format.format(**m) + "\n"
+        new = {"color": 16776960, "title": title, "description": description}
+        body["embeds"].append(new)
+
+    if demoted:
+        title = "Member demoted" if len(demoted) == 1 else "Members demoted"
+        if not guild_config.get("override_name", False):
+            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
+        description = ""
+        for m in demoted:
+            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
+            m["emoji"] = vocation_emojis.get(m["vocation"], "")
+            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
+            description += rank_change_format.format(**m) + "\n"
+        new = {"color": 16753920, "title": title, "description": description}
         body["embeds"].append(new)
 
     requests.post(guild.get("webhook_url", cfg.get("webhook_url")), data=json.dumps(body),
@@ -179,13 +207,30 @@ if __name__ == "__main__":
             save_data(guild_file, new_guild_data)
             removed_members = []
             new_members = []
-            for index, member in enumerate(guild_data["members"]):
+            promoted = []
+            demoted = []
+            for member in guild_data["members"]:
                 found = False
                 for _member in new_guild_data["members"]:
                     if member["name"] == _member["name"]:
                         # Member still in guild, we remove it from list for faster iterating
                         new_guild_data["members"].remove(_member)
                         found = True
+                        # Rank changed
+                        if member["rank"] != _member["rank"]:
+                            try:
+                                if new_guild_data["ranks"].index(member["rank"]) < \
+                                        new_guild_data["ranks"].index(_member["rank"]):
+                                    # Demoted
+                                    print("Member demoted:", _member["name"])
+                                    demoted.append(_member)
+                                else:
+                                    # Promoted
+                                    print("Member promoted:", _member["name"])
+                                    promoted.append(_member)
+                            except ValueError:
+                                # Todo: Handle this
+                                pass
                         break
                 if not found:
                     print("Member no longer in guild: ", member["name"])
@@ -195,7 +240,7 @@ if __name__ == "__main__":
                 print("New members found: "+",".join(m["name"] for m in new_members))
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data["logo_url"]
-            announce_changes(guild, name, new_members, removed_members)
+            announce_changes(guild, name, new_members, removed_members, promoted, demoted)
             time.sleep(10)
         time.sleep(5*60)
 

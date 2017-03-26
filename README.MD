@@ -23,6 +23,7 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 ## Current Features
 * Announces when a member joins
 * Announces when a member leaves or is kicked
+* Announce when a member is promoted or demoted
 * Multiple guilds support
 
 ## Known Issues
