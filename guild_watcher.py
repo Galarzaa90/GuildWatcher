@@ -111,8 +111,6 @@ def announce_changes(guild_config, name, joined, removed, promoted, demoted):
     new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
     removed_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
                             "Rank: **{rank}** - Joined: **{joined}**"
-    rank_change_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
-                            "Rank: **{rank}** - Joined: **{joined}** - To **{rank}**"
     body = {
         "username": guild["name"] if guild_config.get("override_name", False) else cfg.get("name"),
         "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
@@ -153,7 +151,7 @@ def announce_changes(guild_config, name, joined, removed, promoted, demoted):
             m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
             m["emoji"] = vocation_emojis.get(m["vocation"], "")
             m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += rank_change_format.format(**m) + "\n"
+            description += removed_member_format.format(**m) + "\n"
         new = {"color": 16776960, "title": title, "description": description}
         body["embeds"].append(new)
 
@@ -166,7 +164,7 @@ def announce_changes(guild_config, name, joined, removed, promoted, demoted):
             m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
             m["emoji"] = vocation_emojis.get(m["vocation"], "")
             m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += rank_change_format.format(**m) + "\n"
+            description += removed_member_format.format(**m) + "\n"
         new = {"color": 16753920, "title": title, "description": description}
         body["embeds"].append(new)
 
