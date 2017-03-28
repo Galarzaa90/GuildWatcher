@@ -168,8 +168,8 @@ def announce_changes(guild_config, name, joined, removed, promoted, demoted):
         new = {"color": 16753920, "title": title, "description": description}
         body["embeds"].append(new)
 
-    requests.post(guild.get("webhook_url", cfg.get("webhook_url")), data=json.dumps(body),
-                  headers={"Content-Type": "application/json"})
+    requests.post(guild.get("webhook_url", guild_config.get("webhook_url", cfg.get("webhook_url"))),
+                  data=json.dumps(body), headers={"Content-Type": "application/json"})
 
 if __name__ == "__main__":
     while True:
@@ -239,7 +239,7 @@ if __name__ == "__main__":
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data["logo_url"]
             announce_changes(guild, name, new_members, removed_members, promoted, demoted)
-            time.sleep(10)
+            time.sleep(2)
         time.sleep(5*60)
 
 

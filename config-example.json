@@ -6,6 +6,7 @@
   "guilds": [
     {"name": "Redd Alliance", "override_name": true, "override_image": true},
     {"name": "Another guild", "override_image": true},
-    {"name": "Yet another guild"}
+    {"name": "Yet another guild"},
+    {"name": "Guild with announcements on diff channel", "webhook_url": "http://discord.webhook.url.goes.here"}
   ]
 }
