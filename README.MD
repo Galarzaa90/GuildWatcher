@@ -24,12 +24,12 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 * Announces when a member joins
 * Announces when a member leaves or is kicked
 * Announce when a member is promoted or demoted
+* Announce when a member changes name
 * Multiple guilds support
 * Webhook URL configurable per guild
 
 ## Known Issues
 * Renaming a rank would trigger all rank members getting announced as leaving and joinning back.
-* A name change would be detected as leaving, and joining.
 
 ## Planned features
 * Announce when a member's title changes
