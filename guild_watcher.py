@@ -169,93 +169,98 @@ vocation_abbreviations = {
 }
 
 
-def announce_changes(guild_config, name, joined, removed, promoted, demoted, deleted, name_changed):
+def announce_changes(guild_config, name, changes, joined):
     new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
     member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - Rank: **{rank}** - " \
                     "Joined: **{joined}**"
     name_changed_format = "{former_name} \U00002192 [{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
+                          "Rank: **{rank}**"
+    title_changed_format = "[{name}]({url}) - {old_title} \U00002192 {title} - Level **{level}** **{vocation}** {emoji} - " \
                           "Rank: **{rank}**"
     body = {
         "username": guild["name"] if guild_config.get("override_name", False) else cfg.get("name"),
         "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
         "embeds": [],
     }
-    if joined:
-        title = "New member" if len(joined) == 1 else "New members"
+    joined_str = ""
+    removed = ""
+    name_changed = ""
+    deleted = ""
+    promoted = ""
+    demoted = ""
+    title_changed = ""
+
+    for m in (changes+joined):
+        m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
+        m["emoji"] = vocation_emojis.get(m["vocation"], "")
+        m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
+        change_type = m.get("type", "")
+        if change_type == "removed":
+            removed += member_format.format(**m) + "\n"
+        elif change_type == "promotion":
+            promoted += member_format.format(**m) + "\n"
+        elif change_type == "demotion":
+            demoted += member_format.format(**m) + "\n"
+        elif change_type == "namechange":
+            name_changed += name_changed_format.format(**m) + "\n"
+        elif change_type == "titlechange":
+            if m["old_title"] == "":
+                m["old_title"] = "None"
+            if m["title"] == "":
+                m["title"] = "None"
+            title_changed += title_changed_format.format(**m) + "\n"
+        elif change_type == "deleted":
+            deleted += member_format.format(**m) + "\n"
+        else:
+            joined_str += new_member_format.format(**m) + "\n"
+
+    if joined_str:
+        title = "New member"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        description = ""
-        for m in joined:
-            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-            m["emoji"] = vocation_emojis.get(m["vocation"], "")
-            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += new_member_format.format(**m)+"\n"
-        new = {"color": 361051, "title": title, "description": description}
+        new = {"color": 361051, "title": title, "description": joined_str}
         body["embeds"].append(new)
 
     if removed:
-        title = "Member left or kicked" if len(removed) == 1 else "Members left or kicked"
+        title = "Member left or kicked"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        description = ""
-        for m in removed:
-            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-            m["emoji"] = vocation_emojis.get(m["vocation"], "")
-            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += member_format.format(**m) + "\n"
-        new = {"color": 16711680, "title": title, "description": description}
+        new = {"color": 16711680, "title": title, "description": removed}
         body["embeds"].append(new)
 
     if promoted:
-        title = "Member promoted" if len(promoted) == 1 else "Members promoted"
+        title = "Member promoted"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        description = ""
-        for m in promoted:
-            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-            m["emoji"] = vocation_emojis.get(m["vocation"], "")
-            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += member_format.format(**m) + "\n"
-        new = {"color": 16776960, "title": title, "description": description}
+        new = {"color": 16776960, "title": title, "description": promoted}
         body["embeds"].append(new)
 
     if demoted:
-        title = "Member demoted" if len(demoted) == 1 else "Members demoted"
+        title = "Member demoted"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        description = ""
-        for m in demoted:
-            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-            m["emoji"] = vocation_emojis.get(m["vocation"], "")
-            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += member_format.format(**m) + "\n"
-        new = {"color": 16753920, "title": title, "description": description}
+        new = {"color": 16753920, "title": title, "description": demoted}
         body["embeds"].append(new)
 
     if deleted:
-        title = "Member deleted" if len(deleted) == 1 else "Members deleted"
+        title = "Member deleted"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        description = ""
-        for m in deleted:
-            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-            m["emoji"] = vocation_emojis.get(m["vocation"], "")
-            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += member_format.format(**m) + "\n"
-        new = {"color": 0, "title": title, "description": description}
+        new = {"color": 0, "title": title, "description": deleted}
         body["embeds"].append(new)
 
     if name_changed:
-        title = "Member changed name" if len(name_changed) == 1 else "Members changed name"
+        title = "Member changed name"
         if not guild_config.get("override_name", False):
             title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        description = ""
-        for m in name_changed:
-            m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-            m["emoji"] = vocation_emojis.get(m["vocation"], "")
-            m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-            description += name_changed_format.format(**m) + "\n"
-        new = {"color": 65535, "title": title, "description": description}
+        new = {"color": 65535, "title": title, "description": name_changed}
+        body["embeds"].append(new)
+
+    if title_changed:
+        title = "Title changed"
+        if not guild_config.get("override_name", False):
+            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
+        new = {"color": 12915437, "title": title, "description": title_changed}
         body["embeds"].append(new)
 
     requests.post(guild.get("webhook_url", guild_config.get("webhook_url", cfg.get("webhook_url"))),
@@ -286,19 +291,14 @@ if __name__ == "__main__":
                 time.sleep(5)
                 continue
 
-            print(name, "- Scanning guild")
+            print(name, "- Scanning guild...")
             new_guild_data = get_guild_info(name)
             error = new_guild_data.get("error")
             if error is not None:
                 print(name, "- Error:", error)
                 continue
             save_data(guild_file, new_guild_data)
-            removed = []
-            joined = []
-            promoted = []
-            demoted = []
-            deleted = []
-            name_changed = []
+            changes = []
             # Looping previously saved members
             for member in guild_data["members"]:
                 found = False
@@ -315,14 +315,22 @@ if __name__ == "__main__":
                                         new_guild_data["ranks"].index(_member["rank"]):
                                     # Demoted
                                     print("Member demoted:", _member["name"])
-                                    demoted.append(_member)
+                                    _member["type"] = "demotion"
+                                    changes.append(_member)
                                 else:
                                     # Promoted
                                     print("Member promoted:", _member["name"])
-                                    promoted.append(_member)
+                                    _member["type"] = "promotion"
+                                    changes.append(_member)
                             except ValueError:
                                 # Todo: Handle this
                                 pass
+                        # Title changed
+                        if member["title"] != _member["title"]:
+                            _member["type"] = "titlechange"
+                            _member["old_title"] = member["title"]
+                            print("Member title changed:",_member["name"], " - ", _member["title"])
+                            changes.append(_member)
                         break
                 if not found:
                     # We check if it was a namechange or character deleted
@@ -330,14 +338,16 @@ if __name__ == "__main__":
                     char = get_character(member["name"])
                     # Character was deleted (or maybe namelocked)
                     if char is None:
-                        deleted.append(member)
+                        member["type"] = "deleted"
+                        changes.append(member)
                         continue
                     # Character has a new name and matches someone in guild, meaning it got a name change
                     _found = False
                     for _member in new_guild_data["members"]:
                         if char["name"] == _member["name"]:
                             _member["former_name"] = member["name"]
-                            name_changed.append(_member)
+                            _member["type"] = "namechange"
+                            changes.append(_member)
                             new_guild_data["members"].remove(_member)
                             print("{former_name} changed name to {name}".format(**_member))
                             _found = True
@@ -345,13 +355,15 @@ if __name__ == "__main__":
                     if _found:
                         continue
                     print("Member no longer in guild: ", member["name"])
-                    removed.append(member)
+                    member["type"] = "removed"
+                    changes.append(member)
             joined = new_guild_data["members"][:]
             if len(joined) > 0:
-                print("New members found: " +",".join(m["name"] for m in joined))
+                print("New members found: " + ",".join(m["name"] for m in joined))
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data["logo_url"]
-            announce_changes(guild, name, joined, removed, promoted, demoted, deleted, name_changed)
+            announce_changes(guild, name, changes, joined)
+            print(name, "- Scanning done")
             time.sleep(2)
         time.sleep(5*60)
 

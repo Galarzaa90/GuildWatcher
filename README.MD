@@ -4,7 +4,7 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 
 
 ## Requirements:
-* Python 3.4.2 or higher with the following modules:
+* Python 3.4 or higher with the following modules:
     * Requests
     * Pickle
 
@@ -25,14 +25,14 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 * Announces when a member leaves or is kicked
 * Announce when a member is promoted or demoted
 * Announce when a member changes name
+* Announce when a member's title is changed
 * Multiple guilds support
 * Webhook URL configurable per guild
 
 ## Known Issues
-* Renaming a rank would trigger all rank members getting announced as leaving and joinning back.
+* Renaming a rank would trigger all rank members getting announced as leaving and joining back.
 
 ## Planned features
-* Announce when a member's title changes
 * Configurable scan times
 
 ## Example
