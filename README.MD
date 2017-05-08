@@ -1,4 +1,4 @@
-*Script is still under development*
+# GuildWatcher [![Build Status](https://travis-ci.org/Galarzaa90/GuildWatcher.svg?branch=master)](https://travis-ci.org/Galarzaa90/GuildWatcher)
 
 A discord webhook that posts guild changes (member joins, members leaves, member promoted) in a Discord channel.
 
