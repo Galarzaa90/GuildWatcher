@@ -4,9 +4,8 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 
 
 ## Requirements:
-* Python 3.4 or higher with the following modules:
+* Python 3.4 or higher with the following module:
     * Requests
-    * Pickle
 
 ## Configuring Webhooks
 1. On the desired channel, go to its settings and click on the **Webhooks** section.

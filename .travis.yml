@@ -7,7 +7,7 @@ python:
   - "3.5"
   - "3.6"
 install:
-  - pip install requests pickle
+  - pip install requests
 
 "script":
 - python -m compileall ./guild_watcher.py
