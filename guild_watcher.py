@@ -169,7 +169,7 @@ vocation_abbreviations = {
 }
 
 
-def announce_changes(guild_config, name, changes, joined):
+def announce_changes(guild_config, name, changes, joined, total):
     new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
     member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - Rank: **{rank}** - " \
                     "Joined: **{joined}**"
@@ -213,6 +213,9 @@ def announce_changes(guild_config, name, changes, joined):
             deleted += member_format.format(**m) + "\n"
         else:
             joined_str += new_member_format.format(**m) + "\n"
+
+    if joined_str or deleted or removed:
+        body["content"] = "The guild now has **{0:,}** members.".format(total)
 
     if joined_str:
         title = "New member"
@@ -300,6 +303,7 @@ if __name__ == "__main__":
             save_data(guild_file, new_guild_data)
             changes = []
             # Looping previously saved members
+            total_members = len(new_guild_data["members"])
             for member in guild_data["members"]:
                 found = False
                 # Looping current members
@@ -362,7 +366,7 @@ if __name__ == "__main__":
                 print("New members found: " + ",".join(m["name"] for m in joined))
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data["logo_url"]
-            announce_changes(guild, name, changes, joined)
+            announce_changes(guild, name, changes, joined, total_members)
             print(name, "- Scanning done")
             time.sleep(2)
         time.sleep(5*60)
