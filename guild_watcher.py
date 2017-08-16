@@ -1,3 +1,4 @@
+import logging
 import re
 import urllib.parse
 
@@ -6,15 +7,22 @@ import pickle
 import json
 import time
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
+consoleHandler.setLevel(logging.DEBUG)
+log.addHandler(consoleHandler)
+
 cfg = {}
 try:
     with open('config.json') as json_data:
         cfg = json.load(json_data)
 except FileNotFoundError:
-    print("Missing config.json file. Check the example file.")
+    log.error("Missing config.json file. Check the example file.")
     exit()
 except ValueError:
-    print("Malformed config.json file.")
+    log.error("Malformed config.json file.")
     exit()
 
 
@@ -274,31 +282,31 @@ if __name__ == "__main__":
         # Iterate each guild
         for guild in cfg["guilds"]:
             if guild.get("webhook_url", cfg.get("webhook_url")) is None:
-                print("Missing Webhook URL in config.json")
+                log.error("Missing Webhook URL in config.json")
                 exit()
             name = guild.get("name", None)
             if name is None:
-                print("Guild missing name.")
+                log.error("Guild missing name.")
                 time.sleep(5)
                 continue
             guild_file = name+".data"
             guild_data = load_data(guild_file)
             if guild_data is None:
-                print(name, "- No previous data found. Saving current data.")
+                log.info(name, "- No previous data found. Saving current data.")
                 guild_data = get_guild_info(name)
                 error = guild_data.get("error")
                 if error is not None:
-                    print(name, "- Error:", error)
+                    log.error(name, "- Error:", error)
                     continue
                 save_data(guild_file, guild_data)
                 time.sleep(5)
                 continue
 
-            print(name, "- Scanning guild...")
+            log.info(name, "- Scanning guild...")
             new_guild_data = get_guild_info(name)
             error = new_guild_data.get("error")
             if error is not None:
-                print(name, "- Error:", error)
+                log.error(name, "- Error:", error)
                 continue
             save_data(guild_file, new_guild_data)
             changes = []
@@ -318,12 +326,12 @@ if __name__ == "__main__":
                                 if new_guild_data["ranks"].index(member["rank"]) < \
                                         new_guild_data["ranks"].index(_member["rank"]):
                                     # Demoted
-                                    print("Member demoted:", _member["name"])
+                                    log.info("Member demoted:", _member["name"])
                                     _member["type"] = "demotion"
                                     changes.append(_member)
                                 else:
                                     # Promoted
-                                    print("Member promoted:", _member["name"])
+                                    log.info("Member promoted:", _member["name"])
                                     _member["type"] = "promotion"
                                     changes.append(_member)
                             except ValueError:
@@ -333,12 +341,12 @@ if __name__ == "__main__":
                         if member["title"] != _member["title"]:
                             _member["type"] = "titlechange"
                             _member["old_title"] = member["title"]
-                            print("Member title changed:",_member["name"], " - ", _member["title"])
+                            log.info("Member title changed:",_member["name"], " - ", _member["title"])
                             changes.append(_member)
                         break
                 if not found:
                     # We check if it was a namechange or character deleted
-                    print("Checking character {name}".format(**member))
+                    log.info("Checking character {name}".format(**member))
                     char = get_character(member["name"])
                     # Character was deleted (or maybe namelocked)
                     if char is None:
@@ -353,21 +361,21 @@ if __name__ == "__main__":
                             _member["type"] = "namechange"
                             changes.append(_member)
                             new_guild_data["members"].remove(_member)
-                            print("{former_name} changed name to {name}".format(**_member))
+                            log.info("{former_name} changed name to {name}".format(**_member))
                             _found = True
                             break
                     if _found:
                         continue
-                    print("Member no longer in guild: ", member["name"])
+                    log.info("Member no longer in guild: ", member["name"])
                     member["type"] = "removed"
                     changes.append(member)
             joined = new_guild_data["members"][:]
             if len(joined) > 0:
-                print("New members found: " + ",".join(m["name"] for m in joined))
+                log.info("New members found: " + ",".join(m["name"] for m in joined))
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data["logo_url"]
             announce_changes(guild, name, changes, joined, total_members)
-            print(name, "- Scanning done")
+            log.info(name, "- Scanning done")
             time.sleep(2)
         time.sleep(5*60)
 

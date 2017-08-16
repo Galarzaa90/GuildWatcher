@@ -33,6 +33,8 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 
 ## Planned features
 * Configurable scan times
+* Check invites
 
 ## Example
-![image](https://cloud.githubusercontent.com/assets/12865379/23975881/f59df368-09a0-11e7-86f4-2f1f23351f3f.png)
+![image](https://user-images.githubusercontent.com/12865379/29383497-7df48300-8285-11e7-83c3-f774ad3a43a8.png)
+
