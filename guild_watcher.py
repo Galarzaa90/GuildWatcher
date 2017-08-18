@@ -292,21 +292,21 @@ if __name__ == "__main__":
             guild_file = name+".data"
             guild_data = load_data(guild_file)
             if guild_data is None:
-                log.info(name, "- No previous data found. Saving current data.")
+                log.info(name + " - No previous data found. Saving current data.")
                 guild_data = get_guild_info(name)
                 error = guild_data.get("error")
                 if error is not None:
-                    log.error(name, "- Error:", error)
+                    log.error(name +" - Error: " + error)
                     continue
                 save_data(guild_file, guild_data)
                 time.sleep(5)
                 continue
 
-            log.info(name, "- Scanning guild...")
+            log.info(name + " - Scanning guild...")
             new_guild_data = get_guild_info(name)
             error = new_guild_data.get("error")
             if error is not None:
-                log.error(name, "- Error:", error)
+                log.error(name + " - Error: "+error)
                 continue
             save_data(guild_file, new_guild_data)
             changes = []
@@ -326,12 +326,12 @@ if __name__ == "__main__":
                                 if new_guild_data["ranks"].index(member["rank"]) < \
                                         new_guild_data["ranks"].index(_member["rank"]):
                                     # Demoted
-                                    log.info("Member demoted:", _member["name"])
+                                    log.info("Member demoted: " + _member["name"])
                                     _member["type"] = "demotion"
                                     changes.append(_member)
                                 else:
                                     # Promoted
-                                    log.info("Member promoted:", _member["name"])
+                                    log.info("Member promoted: " + _member["name"])
                                     _member["type"] = "promotion"
                                     changes.append(_member)
                             except ValueError:
@@ -341,7 +341,7 @@ if __name__ == "__main__":
                         if member["title"] != _member["title"]:
                             _member["type"] = "titlechange"
                             _member["old_title"] = member["title"]
-                            log.info("Member title changed:",_member["name"], " - ", _member["title"])
+                            log.info("Member title changed: {name} - {title}".format(**member))
                             changes.append(_member)
                         break
                 if not found:
@@ -366,7 +366,7 @@ if __name__ == "__main__":
                             break
                     if _found:
                         continue
-                    log.info("Member no longer in guild: ", member["name"])
+                    log.info("Member no longer in guild: " + member["name"])
                     member["type"] = "removed"
                     changes.append(member)
             joined = new_guild_data["members"][:]
@@ -375,7 +375,7 @@ if __name__ == "__main__":
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data["logo_url"]
             announce_changes(guild, name, changes, joined, total_members)
-            log.info(name, "- Scanning done")
+            log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5*60)
 
