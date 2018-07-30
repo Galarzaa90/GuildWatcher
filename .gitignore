@@ -1,3 +1,6 @@
 /.idea
 *.data
 config.json
+*.egg-info/
+dist/
+build/

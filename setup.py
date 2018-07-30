@@ -12,7 +12,7 @@ with open('README.md') as f:
     readme = f.read()
 
 setup(
-    name='GuildWatcher',
+    name='guildwatcher',
     version='0.1.0a1',
     author='Allan Galarza',
     author_email="allan.galarza@gmail.com",
@@ -24,13 +24,13 @@ setup(
     install_requires=requirements,
     entry_points='''
         [console_scripts]
-        guild_watcher=guild_watcher:main
+        guildwatcher=guild_watcher:main
     ''',
     include_package_data=True,
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
-        'License :: OSI Approved :: MIT License'
+        'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3 :: Only',
