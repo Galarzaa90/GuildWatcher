@@ -277,7 +277,8 @@ def announce_changes(guild_config, name, changes, joined, total):
     requests.post(guild.get("webhook_url", guild_config.get("webhook_url", cfg.get("webhook_url"))),
                   data=json.dumps(body), headers={"Content-Type": "application/json"})
 
-if __name__ == "__main__":
+
+def main():
     while True:
         # Iterate each guild
         for guild in cfg["guilds"]:
@@ -380,3 +381,5 @@ if __name__ == "__main__":
         time.sleep(5*60)
 
 
+if __name__ == "__main__":
+    main()
