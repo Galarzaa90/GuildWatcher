@@ -13,7 +13,7 @@ with open('README.md') as f:
 
 setup(
     name='GuildWatcher',
-    version='0.1.0a2',
+    version='0.1.0a1',
     author='Allan Galarza',
     author_email="allan.galarza@gmail.com",
     description='A discord webhook to track Tibia guild changes.',
@@ -24,7 +24,7 @@ setup(
     install_requires=requirements,
     entry_points='''
         [console_scripts]
-        guilld_watcher=guild_watcher:main
+        guild_watcher=guild_watcher:main
     ''',
     include_package_data=True,
     classifiers=[
