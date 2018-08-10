@@ -2,8 +2,8 @@ import sys
 
 from setuptools import setup
 
-if sys.version_info < (3, 2):
-    sys.exit('Sorry, Python < 3.2 is not supported')
+if sys.version_info < (3, 3):
+    sys.exit('Sorry, Python < 3.3 is not supported')
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
@@ -34,7 +34,6 @@ setup(
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',

@@ -4,7 +4,7 @@ import pickle
 import time
 
 import requests
-from tibiapy import Character, Guild
+from tibiapy import Character, Guild, GuildMember
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -66,7 +66,6 @@ def get_character(name, tries=5):
     return char
 
 
-
 def get_guild(name, tries=5):
     try:
         r = requests.get(Guild.get_url(name))
@@ -81,6 +80,72 @@ def get_guild(name, tries=5):
     guild = Guild.from_content(content)
 
     return guild
+
+
+def compare_guilds(before, after):
+    """
+    Compares the same guild at different points in time, to obtain the changes made.
+
+    :param before: The state of the guild in the previous saved state.
+    :type before: Guild
+    :param after:  The current state of the guild.
+    :type after: Guild
+    """
+    changes = []
+    ranks = after.ranks[:]
+    for member in before.members:  # type: GuildMember
+        found = False
+        for member_new in after.members:  # type: GuildMember
+            if member != member_new:
+                continue
+            # Member still in guild, remove it from list
+            after.members.remove(member_new)
+            found = True
+            # Rank changed
+            if member.rank != member_new.rank:
+                try:
+                    # Check if new rank position's is higher or lower
+                    if ranks.index(member.rank) < ranks.index(member_new.rank):
+                        log.info("Member demoted: %s" % member_new.name)
+                        changes.append({"type": "demotion", "member": member_new})
+                    else:
+                        log.info("Member promoted: %s" % member_new.name)
+                        changes.append({"type": "promotion", "member": member_new})
+                except ValueError:
+                    # This should be impossible
+                    log.error("Unexpected error: Member has a rank not present in list")
+            # Title changed
+            if member.title != member_new.title:
+                log.info("Member title changed from '%s' to '%s'" % (member.title, member_new.title))
+                changes.append({"type": "title", "member": member_new})
+            break
+        if not found:
+            # We check if it was a namechange or character deleted
+            log.info("Checking character {0.name}".format(member))
+            char = get_character(member.name)
+            # Character was deleted (or maybe namelocked)
+            if char is None:
+                changes.append({"type": "deleted", "member": member})
+                continue
+            # Character has a new name and matches someone in guild, meaning it got a name change
+            _found = False
+            for _member in after.members:
+                if char.name == _member.name:
+                    after.members.remove(_member)
+                    changes.append({"type": "name_change", "member": _member, "former_name": member.name})
+                    log.info("{former_name} changed name to {name}".format(**_member))
+                    _found = True
+                    break
+            if _found:
+                continue
+            log.info("Member no longer in guild: " + member.name)
+            changes.append({"type": "removed", "member": member})
+    joined = after.members[:]
+    changes += [{"type": "joined", "member": m} for m in joined]
+    if len(joined) > 0:
+        log.info("New members found: " + ",".join(m.name for m in joined))
+
+    return changes
 
 
 vocation_emojis = {
