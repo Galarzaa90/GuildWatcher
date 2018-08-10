@@ -44,13 +44,7 @@ def load_data(file):
         return None
 
 
-def get_character(name, tries=5):
-    """Returns a dictionary with a player's info
-    The dictionary contains the following keys: name, deleted, level, vocation, world, residence,
-    married, gender, guild, last,login, chars*.
-        *chars is list that contains other characters in the same account (if not hidden).
-        Each list element is dictionary with the keys: name, world.
-    May return ERROR_DOESNTEXIST or ERROR_NETWORK accordingly."""
+def get_character(name, tries=5):  # pragma: no cover
     try:
         url = Character.get_url(name)
     except UnicodeEncodeError:
@@ -70,7 +64,7 @@ def get_character(name, tries=5):
     return char
 
 
-def get_guild(name, tries=5):
+def get_guild(name, tries=5):  # pragma: no cover
     try:
         r = requests.get(Guild.get_url(name))
         content = r.text
@@ -309,62 +303,10 @@ def scan_guilds():
             changes = []
             # Looping through members
             total_members = new_guild_data.member_count
-            for member in guild_data.members:
-                found = False
-                # Looping current members
-                for _member in new_guild_data.members:
-                    if member.name == _member.name:
-                        # Member still in guild, we remove it from list for faster iterating
-                        new_guild_data.members.remove(_member)
-                        found = True
-                        # Rank changed
-                        if member.rank != _member.rank:
-                            try:
-                                if new_guild_data.ranks.index(member.rank) < \
-                                        new_guild_data.ranks.index(_member.rank):
-                                    # Demoted
-                                    log.info("Member demoted: " + _member.name)
-                                    changes.append({"type": "demotion", "member": _member})
-                                else:
-                                    # Promoted
-                                    log.info("Member promoted: " + _member.name)
-                                    _member["type"] = "promotion"
-                                    changes.append({"type": "promotion", "member": _member})
-                            except ValueError:
-                                # Todo: Handle this
-                                pass
-                        # Title changed
-                        if member.title != _member.title:
-                            log.info("Member title changed: {0.name} - {0.title}".format(member))
-                            changes.append({"type": "title", "member": _member, "old_title": member.title})
-                        break
-                if not found:
-                    # We check if it was a namechange or character deleted
-                    log.info("Checking character {0.name}".format(member))
-                    char = get_character(member.name)
-                    # Character was deleted (or maybe namelocked)
-                    if char is None:
-                        changes.append({"type": "deleted", "member": member})
-                        continue
-                    # Character has a new name and matches someone in guild, meaning it got a name change
-                    _found = False
-                    for _member in new_guild_data.members:
-                        if char.name == _member.name:
-                            new_guild_data.members.remove(_member)
-                            changes.append({"type": "name_change", "member": _member, "former_name": member.name})
-                            log.info("{former_name} changed name to {name}".format(**_member))
-                            _found = True
-                            break
-                    if _found:
-                        continue
-                    log.info("Member no longer in guild: " + member.name)
-                    changes.append({"type": "removed", "member": member})
-            joined = new_guild_data.members[:]
-            if len(joined) > 0:
-                log.info("New members found: " + ",".join(m.name for m in joined))
+            changes = compare_guilds(guild_data, new_guild_data)
             if guild["override_image"]:
                 guild["avatar_url"] = new_guild_data.logo_url
-            announce_changes(guild, name, changes, joined, total_members)
+            announce_changes(guild, name, changes, total_members)
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)
