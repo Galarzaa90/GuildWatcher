@@ -2,7 +2,7 @@ image: python:3.6
 
 before_script:
   - pip install -r requirements.txt
-  - pip install -U setuptools wheels
+  - pip install -U setuptools wheel
 
 stages:
   - build
