@@ -117,7 +117,7 @@ def compare_guilds(before, after):
             # Title changed
             if member.title != member_new.title:
                 log.info("Member title changed from '%s' to '%s'" % (member.title, member_new.title))
-                changes.append({"type": "title", "member": member_new})
+                changes.append({"type": "title", "member": member_new, "old_title": member.title})
             break
         if not found:
             # We check if it was a namechange or character deleted
@@ -125,6 +125,7 @@ def compare_guilds(before, after):
             char = get_character(member.name)
             # Character was deleted (or maybe namelocked)
             if char is None:
+                log.info("Member deleted: %s" % member.name)
                 changes.append({"type": "deleted", "member": member})
                 continue
             # Character has a new name and matches someone in guild, meaning it got a name change
@@ -133,7 +134,7 @@ def compare_guilds(before, after):
                 if char.name == _member.name:
                     after.members.remove(_member)
                     changes.append({"type": "name_change", "member": _member, "former_name": member.name})
-                    log.info("{former_name} changed name to {name}".format(**_member))
+                    log.info("%s changed name to %s" % (member.name, _member.name))
                     _found = True
                     break
             if _found:
