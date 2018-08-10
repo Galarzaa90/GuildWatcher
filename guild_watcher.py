@@ -14,15 +14,19 @@ consoleHandler.setLevel(logging.DEBUG)
 log.addHandler(consoleHandler)
 
 cfg = {}
-try:
-    with open('config.json') as json_data:
-        cfg = json.load(json_data)
-except FileNotFoundError:
-    log.error("Missing config.json file. Check the example file.")
-    exit()
-except ValueError:
-    log.error("Malformed config.json file.")
-    exit()
+
+
+def load_config():
+    global cfg
+    try:
+        with open('config.json') as json_data:
+            cfg = json.load(json_data)
+    except FileNotFoundError:
+        log.error("Missing config.json file. Check the example file.")
+        exit()
+    except ValueError:
+        log.error("Malformed config.json file.")
+        exit()
 
 
 def save_data(file, data):
@@ -272,6 +276,7 @@ def announce_changes(guild_config, name, changes, joined, total):
 
 
 def scan_guilds():
+    load_config()
     while True:
         # Iterate through each guild in the configuration file
         for guild in cfg["guilds"]:
@@ -363,6 +368,7 @@ def scan_guilds():
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)
+
 
 if __name__ == "__main__":
     scan_guilds()
