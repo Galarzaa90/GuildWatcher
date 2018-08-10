@@ -108,15 +108,15 @@ vocation_abbreviations = {
 
 
 def announce_changes(guild_config, name, changes, joined, total):
-    new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
-    member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - Rank: **{rank}** - " \
-                    "Joined: **{joined}**"
-    name_changed_format = "{former_name} \U00002192 [{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
-                          "Rank: **{rank}**"
-    title_changed_format = "[{name}]({url}) - {old_title} \U00002192 {title} - Level **{level}** **{vocation}** {emoji} - " \
-                          "Rank: **{rank}**"
+    new_member_format = "[{m.name}]({m.url}) - Level **{m.level}** **{m.vocation}** {emoji}"
+    member_format = "[{m.name}]({m.url}) - Level **{m.level}** **{m.vocation}** {emoji} - Rank: **{m.rank}** - " \
+                    "Joined: **{m.joined}**"
+    name_changed_format = "{former_name} → [{m.name}]({m.url}) - Level **{m.level}** **{m.vocation}** {emoji} - " \
+                          "Rank: **{m.rank}**"
+    title_changed_format = "[{m.name}]({m.url}) - {old_title} → {m.title} " \
+                           "- Level **{m.level}** **{m.vocation}** {emoji} - Rank: **{m.rank}**"
     body = {
-        "username": guild["name"] if guild_config.get("override_name", False) else cfg.get("name"),
+        "username": name if guild_config.get("override_name", False) else cfg.get("name"),
         "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
         "embeds": [],
     }
@@ -128,29 +128,26 @@ def announce_changes(guild_config, name, changes, joined, total):
     demoted = ""
     title_changed = ""
 
-    for m in (changes+joined):
-        m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-        m["emoji"] = vocation_emojis.get(m["vocation"], "")
-        m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-        change_type = m.get("type", "")
-        if change_type == "removed":
-            removed += member_format.format(**m) + "\n"
-        elif change_type == "promotion":
-            promoted += member_format.format(**m) + "\n"
-        elif change_type == "demotion":
-            demoted += member_format.format(**m) + "\n"
-        elif change_type == "namechange":
-            name_changed += name_changed_format.format(**m) + "\n"
-        elif change_type == "titlechange":
-            if m["old_title"] == "":
-                m["old_title"] = "None"
-            if m["title"] == "":
-                m["title"] = "None"
-            title_changed += title_changed_format.format(**m) + "\n"
-        elif change_type == "deleted":
-            deleted += member_format.format(**m) + "\n"
-        else:
-            joined_str += new_member_format.format(**m) + "\n"
+    for change in changes:
+        emoji = vocation_emojis.get(change["member"].vocation, "")
+        change["member"].vocation = vocation_abbreviations.get(change["member"].vocation, "")
+        if change["type"] == "promotion":
+            promoted += member_format.format(m=change["member"], emoji=emoji) + "\n"
+        if change["type"] == "removed":
+            removed += member_format.format(m=change["member"], emoji=emoji) + "\n"
+        if change["type"] == "demotion":
+            demoted += member_format.format(m=change["member"], emoji=emoji) + "\n"
+        if change["type"] == "name_change":
+            name_changed += name_changed_format.format(m=change["member"], emoji=emoji,
+                                                       former_name=change["former_name"]) + "\n"
+        if change["type"] == "title":
+            title_changed += title_changed_format.format(m=change["member"], emoji=emoji,
+                                                         old_title=change["old_title"]) + "\n"
+
+    for join in joined:
+        emoji = vocation_emojis.get(join.vocation, "")
+        join.vocation = vocation_abbreviations.get(join.vocation, "")
+        joined_str += new_member_format.format(m=join, emoji=emoji) + "\n"
 
     if joined_str or deleted or removed:
         body["content"] = "The guild now has **{0:,}** members.".format(total)
@@ -204,110 +201,8 @@ def announce_changes(guild_config, name, changes, joined, total):
         new = {"color": 12915437, "title": title, "description": title_changed}
         body["embeds"].append(new)
 
-    requests.post(guild.get("webhook_url", guild_config.get("webhook_url", cfg.get("webhook_url"))),
+    requests.post(guild_config.get("webhook_url", cfg.get("webhook_url")),
                   data=json.dumps(body), headers={"Content-Type": "application/json"})
-
-if __name__ == "__main__":
-    while True:
-        # Iterate each guild
-        for guild in cfg["guilds"]:
-            if guild.get("webhook_url", cfg.get("webhook_url")) is None:
-                log.error("Missing Webhook URL in config.json")
-                exit()
-            name = guild.get("name", None)
-            if name is None:
-                log.error("Guild missing name.")
-                time.sleep(5)
-                continue
-            guild_file = name+".data"
-            guild_data = load_data(guild_file)
-            if guild_data is None:
-                log.info(name + " - No previous data found. Saving current data.")
-                guild_data = get_guild_info(name)
-                error = guild_data.get("error")
-                if error is not None:
-                    log.error(name +" - Error: " + error)
-                    continue
-                save_data(guild_file, guild_data)
-                time.sleep(5)
-                continue
-
-            log.info(name + " - Scanning guild...")
-            new_guild_data = get_guild_info(name)
-            error = new_guild_data.get("error")
-            if error is not None:
-                log.error(name + " - Error: "+error)
-                continue
-            save_data(guild_file, new_guild_data)
-            changes = []
-            # Looping previously saved members
-            total_members = len(new_guild_data["members"])
-            for member in guild_data["members"]:
-                found = False
-                # Looping current members
-                for _member in new_guild_data["members"]:
-                    if member["name"] == _member["name"]:
-                        # Member still in guild, we remove it from list for faster iterating
-                        new_guild_data["members"].remove(_member)
-                        found = True
-                        # Rank changed
-                        if member["rank"] != _member["rank"]:
-                            try:
-                                if new_guild_data["ranks"].index(member["rank"]) < \
-                                        new_guild_data["ranks"].index(_member["rank"]):
-                                    # Demoted
-                                    log.info("Member demoted: " + _member["name"])
-                                    _member["type"] = "demotion"
-                                    changes.append(_member)
-                                else:
-                                    # Promoted
-                                    log.info("Member promoted: " + _member["name"])
-                                    _member["type"] = "promotion"
-                                    changes.append(_member)
-                            except ValueError:
-                                # Todo: Handle this
-                                pass
-                        # Title changed
-                        if member["title"] != _member["title"]:
-                            _member["type"] = "titlechange"
-                            _member["old_title"] = member["title"]
-                            log.info("Member title changed: {name} - {title}".format(**member))
-                            changes.append(_member)
-                        break
-                if not found:
-                    # We check if it was a namechange or character deleted
-                    log.info("Checking character {name}".format(**member))
-                    char = get_character(member["name"])
-                    # Character was deleted (or maybe namelocked)
-                    if char is None:
-                        member["type"] = "deleted"
-                        changes.append(member)
-                        continue
-                    # Character has a new name and matches someone in guild, meaning it got a name change
-                    _found = False
-                    for _member in new_guild_data["members"]:
-                        if char["name"] == _member["name"]:
-                            _member["former_name"] = member["name"]
-                            _member["type"] = "namechange"
-                            changes.append(_member)
-                            new_guild_data["members"].remove(_member)
-                            log.info("{former_name} changed name to {name}".format(**_member))
-                            _found = True
-                            break
-                    if _found:
-                        continue
-                    log.info("Member no longer in guild: " + member["name"])
-                    member["type"] = "removed"
-                    changes.append(member)
-            joined = new_guild_data["members"][:]
-            if len(joined) > 0:
-                log.info("New members found: " + ",".join(m["name"] for m in joined))
-            if guild["override_image"]:
-                guild["avatar_url"] = new_guild_data["logo_url"]
-            announce_changes(guild, name, changes, joined, total_members)
-            log.info(name + " - Scanning done")
-            time.sleep(2)
-        time.sleep(5*60)
 
 
 def scan_guilds():
@@ -402,7 +297,6 @@ def scan_guilds():
                 log.info(name + " - Scanning done")
                 time.sleep(2)
             time.sleep(5 * 60)
-
 
 if __name__ == "__main__":
     scan_guilds()
