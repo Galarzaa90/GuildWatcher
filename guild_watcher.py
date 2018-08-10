@@ -2,7 +2,6 @@ import json
 import logging
 import pickle
 import time
-from typing import Optional
 
 import requests
 from tibiapy import Character, Guild
