@@ -288,15 +288,15 @@ def scan_guilds():
                         continue
                     log.info("Member no longer in guild: " + member.name)
                     changes.append({"type": "removed", "member": member})
-                joined = new_guild_data.members[:]
-                if len(joined) > 0:
-                    log.info("New members found: " + ",".join(m.name for m in joined))
-                if guild["override_image"]:
-                    guild["avatar_url"] = new_guild_data.logo_url
-                announce_changes(guild, name, changes, joined, total_members)
-                log.info(name + " - Scanning done")
-                time.sleep(2)
-            time.sleep(5 * 60)
+            joined = new_guild_data.members[:]
+            if len(joined) > 0:
+                log.info("New members found: " + ",".join(m.name for m in joined))
+            if guild["override_image"]:
+                guild["avatar_url"] = new_guild_data.logo_url
+            announce_changes(guild, name, changes, joined, total_members)
+            log.info(name + " - Scanning done")
+            time.sleep(2)
+        time.sleep(5 * 60)
 
 if __name__ == "__main__":
     scan_guilds()
