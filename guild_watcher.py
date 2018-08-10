@@ -67,7 +67,8 @@ def get_character(name, tries=5):
     return char
 
 
-def get_guild(name, tries=5) -> Optional[Guild]:
+
+def get_guild(name, tries=5):
     try:
         r = requests.get(Guild.get_url(name))
         content = r.text
@@ -218,7 +219,7 @@ def scan_guilds():
                 time.sleep(5)
                 continue
             guild_file = name+".data"
-            guild_data: Guild = load_data(guild_file)
+            guild_data = load_data(guild_file)
             if guild_data is None:
                 log.info(name + " - No previous data found. Saving current data.")
                 guild_data = get_guild(name)
