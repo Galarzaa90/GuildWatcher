@@ -26,8 +26,8 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember(name="John Doe", rank="Member"),
         ]
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "promotion")
-        self.assertEqual(changes[0]["member"].name, "Tschas")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.PROMOTED)
+        self.assertEqual(changes[0].member.name, "Tschas")
 
     def testDemotedMember(self):
         guild_before = Guild(name="Test Guild", world="Antica")
@@ -47,8 +47,8 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember(name="John Doe", rank="Member"),
         ]
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "demotion")
-        self.assertEqual(changes[0]["member"].name, "Jane Doe")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.DEMOTED)
+        self.assertEqual(changes[0].member.name, "Jane Doe")
 
     def testNewMember(self):
         guild_before = Guild(name="Test Guild", world="Antica")
@@ -63,8 +63,8 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember(name="Tschas", rank="Vice Leader"),
         ]
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "joined")
-        self.assertEqual(changes[0]["member"].name, "Tschas")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.NEW_MEMBER)
+        self.assertEqual(changes[0].member.name, "Tschas")
 
     def testTitleChange(self):
         guild_before = Guild(name="Test Guild", world="Antica")
@@ -78,9 +78,9 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember(name="Galarzaa", rank="Leader", title="Gallan"),
         ]
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "title")
-        self.assertEqual(changes[0]["member"].name, "Galarzaa")
-        self.assertEqual(changes[0]["old_title"], "Dictator")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.TITLE_CHANGE)
+        self.assertEqual(changes[0].member.name, "Galarzaa")
+        self.assertEqual(changes[0].extra, "Dictator")
 
     def testMemberDeleted(self):
         guild_watcher.get_character = MagicMock(return_value=None)
@@ -97,8 +97,8 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember(name="Galarzaa", rank="Leader"),
         ]
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "deleted")
-        self.assertEqual(changes[0]["member"].name, "Tschas")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.DELETED)
+        self.assertEqual(changes[0].member.name, "Tschas")
         guild_watcher.get_character.assert_called()
 
     def testMemberKicked(self):
@@ -118,8 +118,8 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember(name="Galarzaa", rank="Leader"),
         ]
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "removed")
-        self.assertEqual(changes[0]["member"].name, "Tschas")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.REMOVED)
+        self.assertEqual(changes[0].member.name, "Tschas")
         guild_watcher.get_character.assert_called()
 
     def testMemberNameChanged(self):
@@ -140,6 +140,7 @@ class TestGuildWatcher(unittest.TestCase):
         char.name = "Tschis"
         guild_watcher.get_character = MagicMock(return_value=char)
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
-        self.assertEqual(changes[0]["type"], "name_change")
-        self.assertEqual(changes[0]["member"].name, "Tschis")
+        self.assertEqual(changes[0].type, guild_watcher.ChangeType.NAME_CHANGE)
+        self.assertEqual(changes[0].member.name, "Tschis")
+        self.assertEqual(changes[0].extra, "Tschas")
         guild_watcher.get_character.assert_called()
