@@ -2,6 +2,7 @@ import json
 import logging
 import pickle
 import time
+from enum import Enum, auto
 
 import requests
 from tibiapy import Character, Guild, GuildMember
@@ -80,14 +81,46 @@ def get_guild(name, tries=5):  # pragma: no cover
     return guild
 
 
+class Change:
+    """
+    Represents a change found in the guild.
+
+    :ivar member: The member involved
+    :ivar type: The change type.
+    :ivar extra: Extra information related to the change.
+    :type member: GuildMember
+    :type type: str
+    :type extra: Optional[Any]
+    """
+    def __init__(self, member, _type, extra: None):
+        self.member = member  # type: GuildMember
+        self.type = _type  # type: ChangeType
+        self.extra = extra
+
+
+class ChangeType(Enum):
+    """Contains all the possible changes that can be found."""
+    NEW_MEMBER = auto()  #: New member joined the guild.
+    DELETED = auto()  #: Member was deleted from the game.
+    REMOVED = auto()  #: Member was kicked or left the guild.
+    NAME_CHANGE = auto()  #: Member changed their name.
+    TITLE_CHANGE = auto()  #: Member title was changed.
+    DEMOTED = auto()  #: Member was demoted.
+    PROMOTED = auto()  #: Member was promoted.
+
+
 def compare_guilds(before, after):
     """
     Compares the same guild at different points in time, to obtain the changes made.
+
+    It returns all the changes found.
 
     :param before: The state of the guild in the previous saved state.
     :type before: Guild
     :param after:  The current state of the guild.
     :type after: Guild
+    :return: A list of all the changes found.
+    :rtype: list of Change
     """
     changes = []
     ranks = after.ranks[:]
@@ -273,11 +306,11 @@ def scan_guilds():
     load_config()
     while True:
         # Iterate through each guild in the configuration file
-        for guild in cfg["guilds"]:
-            if guild.get("webhook_url", cfg.get("webhook_url")) is None:
+        for cfg_guild in cfg["guilds"]:
+            if cfg_guild.get("webhook_url", cfg.get("webhook_url")) is None:
                 log.error("Missing Webhook URL in config.json")
                 exit()
-            name = guild.get("name")
+            name = cfg_guild.get("name")
             if name is None:
                 log.error("Guild is missing name.")
                 time.sleep(5)
@@ -304,9 +337,9 @@ def scan_guilds():
             # Looping through members
             total_members = new_guild_data.member_count
             changes = compare_guilds(guild_data, new_guild_data)
-            if guild["override_image"]:
-                guild["avatar_url"] = new_guild_data.logo_url
-            announce_changes(guild, name, changes, total_members)
+            if cfg_guild["override_image"]:
+                cfg_guild["avatar_url"] = new_guild_data.logo_url
+            announce_changes(cfg_guild, name, changes, total_members)
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)

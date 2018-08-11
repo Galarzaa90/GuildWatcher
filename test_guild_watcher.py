@@ -103,7 +103,7 @@ class TestGuildWatcher(unittest.TestCase):
 
     def testMemberKicked(self):
         char = Character()
-        char.name = "Tschass"
+        char.name = "Tschas"
         guild_watcher.get_character = MagicMock(return_value=Character())
 
         guild_before = Guild(name="Test Guild", world="Antica")
