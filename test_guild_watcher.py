@@ -2,8 +2,10 @@ import unittest
 from unittest.mock import MagicMock
 
 from tibiapy import Guild, GuildMember, Character
+from datetime import date
 
 import guild_watcher
+from guild_watcher import Change, ChangeType
 
 
 class TestGuildWatcher(unittest.TestCase):
@@ -144,3 +146,24 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.name, "Tschis")
         self.assertEqual(changes[0].extra, "Tschas")
         guild_watcher.get_character.assert_called()
+
+    def testDataIntegrity(self):
+        guild = Guild(name="Test Guild", world="Antica")
+        guild.members = [
+            GuildMember(name="Galarzaa", rank="Leader"),
+            GuildMember(name="Tschas", rank="Vice Leader"),
+        ]
+        guild_watcher.save_data(".tmp.data", guild)
+        saved_guild = guild_watcher.load_data(".tmp.data")
+
+        changes = guild_watcher.compare_guilds(guild, saved_guild)
+
+        self.assertFalse(changes)
+
+    def testEmbeds(self):
+        changes = [
+            Change(ChangeType.NEW_MEMBER, GuildMember("Noob", "Recruit", level=19, vocation="Druid")),
+            Change(ChangeType.REMOVED, GuildMember("Noob", "Recruit", level=19, vocation="Druid", joined=date.today()))
+        ]
+        embeds = guild_watcher.build_embeds(changes)
+        print(embeds)
