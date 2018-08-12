@@ -1,13 +1,13 @@
 language: python
 python:
-  - "3.2"
-  - "3.3"
-  - "3.3"
-  - "3.4"
   - "3.5"
   - "3.6"
+  - "3.7-dev"
+
 install:
-  - pip install requests
+  - pip install -r requirements.txt
+  - pip install -U setuptools wheel
 
 "script":
-- python -m compileall ./guild_watcher.py
+- python setup.py sdist bdist_wheel
+- python setup.py test

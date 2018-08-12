@@ -1,11 +1,11 @@
+import json
 import logging
-import re
-import urllib.parse
+import pickle
+import time
+from enum import Enum
 
 import requests
-import pickle
-import json
-import time
+from tibiapy import Character, Guild, GuildMember
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -14,16 +14,56 @@ consoleHandler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(mess
 consoleHandler.setLevel(logging.DEBUG)
 log.addHandler(consoleHandler)
 
+
+# Change strings
+FMT_CHANGE = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e} - Rank: **{m.rank}** - Joined **{m.joined}**\n"
+FMT_NEW_MEMBER = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
+FMT_NAME_CHANGE = "{extra} → [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
+FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** **{v}** {e}\n"
+
+
+class Change:
+    """
+    Represents a change found in the guild.
+
+    :ivar member: The member involved
+    :ivar type: The change type.
+    :ivar extra: Extra information related to the change.
+    :type member: GuildMember
+    :type type: str
+    :type extra: Optional[Any]
+    """
+    def __init__(self, _type, member, extra=None):
+        self.member = member  # type: GuildMember
+        self.type = _type  # type: ChangeType
+        self.extra = extra
+
+
+class ChangeType(Enum):
+    """Contains all the possible changes that can be found."""
+    NEW_MEMBER = 1  #: New member joined the guild.
+    DELETED = 2  #: Member was deleted from the game.
+    REMOVED = 3  #: Member was kicked or left the guild.
+    NAME_CHANGE = 4  #: Member changed their name.
+    TITLE_CHANGE = 5  #: Member title was changed.
+    DEMOTED = 6  #: Member was demoted.
+    PROMOTED = 7  #: Member was promoted.
+
+
 cfg = {}
-try:
-    with open('config.json') as json_data:
-        cfg = json.load(json_data)
-except FileNotFoundError:
-    log.error("Missing config.json file. Check the example file.")
-    exit()
-except ValueError:
-    log.error("Malformed config.json file.")
-    exit()
+
+
+def load_config():
+    global cfg
+    try:
+        with open('config.json') as json_data:
+            cfg = json.load(json_data)
+    except FileNotFoundError:
+        log.error("Missing config.json file. Check the example file.")
+        exit()
+    except ValueError:
+        log.error("Malformed config.json file.")
+        exit()
 
 
 def save_data(file, data):
@@ -41,19 +81,11 @@ def load_data(file):
         return None
 
 
-def get_character(name, tries=5):
-    """Returns a dictionary with a player's info
-    The dictionary contains the following keys: name, deleted, level, vocation, world, residence,
-    married, gender, guild, last,login, chars*.
-        *chars is list that contains other characters in the same account (if not hidden).
-        Each list element is dictionary with the keys: name, world.
-    May return ERROR_DOESNTEXIST or ERROR_NETWORK accordingly."""
-    url_character = "https://secure.tibia.com/community/?subtopic=characters&name="
+def get_character(name, tries=5):  # pragma: no cover
     try:
-        url = url_character + urllib.parse.quote(name.encode('iso-8859-1'))
+        url = Character.get_url(name)
     except UnicodeEncodeError:
         return None
-    char = dict()
 
     # Fetch website
     try:
@@ -61,322 +93,321 @@ def get_character(name, tries=5):
         content = r.text
     except requests.RequestException:
         if tries == 0:
-            return {"error": "Network"}
+            return None
         else:
             tries -= 1
             return get_character(name, tries)
+    char = Character.from_content(content)
+    return char
 
-    # Trimming content to reduce load
+
+def get_guild(name, tries=5):  # pragma: no cover
     try:
-        startIndex = content.index('<div class="BoxContent"')
-        endIndex = content.index("<B>Search Character</B>")
-        content = content[startIndex:endIndex]
-    except ValueError:
-        # Website fetch was incomplete, due to a network error
+        r = requests.get(Guild.get_url(name))
+        content = r.text
+    except requests.RequestException:
         if tries == 0:
             return None
         else:
             tries -= 1
-            time.sleep(2)
-            return get_character(name, tries)
-    # Check if player exists
-    if "Name:</td><td>" not in content:
-        return None
+            return get_guild(name, tries)
 
-    # Name
-    m = re.search(r'Name:</td><td>([^<,]+)', content)
-    if m:
-        char['name'] = m.group(1).strip()
-
-    # Vocation
-    m = re.search(r'Vocation:</td><td>([^<]+)', content)
-    if m:
-        char['vocation'] = m.group(1)
-
-    # World
-    m = re.search(r'World:</td><td>([^<]+)', content)
-    if m:
-        char['world'] = m.group(1)
-
-    return char
-
-
-def get_guild_info(name, tries=5):
-    try:
-        r = requests.get("https://secure.tibia.com/community/", params={"subtopic":"guilds","page":"view","GuildName":name})
-        content = r.text
-    except requests.RequestException:
-        if tries == 0:
-            return {"error": "Network"}
-        else:
-            tries -= 1
-            return get_guild_info(name, tries)
-
-    try:
-        start_index = content.index('<div class="BoxContent"')
-        end_index = content.index('<div id="ThemeboxesColumn" >')
-        content = content[start_index:end_index]
-    except ValueError:
-        # Website fetch was incomplete, due to a network error
-        return {"error": "Network"}
-
-    if '<div class="Text" >Error</div>' in content:
-        return {"error": "NotFound"}
-
-    guild = {}
-    # Logo URL
-    m = re.search(r'<IMG SRC=\"([^\"]+)\" W', content)
-    if m:
-        guild['logo_url'] = m.group(1)
-
-        # Regex pattern to fetch members
-        regex_members = r'<TR BGCOLOR=#[\dABCDEF]+><TD>(.+?)</TD>\s</td><TD><A HREF="https://secure.tibia.com/community/\?subtopic=characters&name=(.+?)">.+?</A> *\(*(.*?)\)*</TD>\s<TD>(.+?)</TD>\s<TD>(.+?)</TD>\s<TD>(.+?)</TD>'
-        pattern = re.compile(regex_members, re.MULTILINE + re.S)
-
-        m = re.findall(pattern, content)
-        guild['members'] = []
-        # Check if list is empty
-        if m:
-            # Building dictionary list from members
-            last_rank = ""
-            guild["ranks"] = []
-            for (rank, name, title, vocation, level, joined) in m:
-                rank = last_rank if (rank == '&#160;') else rank
-                if rank not in guild["ranks"]:
-                    guild["ranks"].append(rank)
-                last_rank = rank
-                name = requests.utils.unquote(name).replace("+", " ")
-                joined = joined.replace('&#160;', '-')
-                guild['members'].append({'rank': rank, 'name': name, 'title': title, 'vocation': vocation,
-                                         'level': level, 'joined': joined})
+    guild = Guild.from_content(content)
 
     return guild
 
 
-vocation_emojis = {
-    "Druid": "\U00002744",
-    "Elder Druid": "\U00002744",
-    "Knight": "\U0001F6E1",
-    "Elite Knight": "\U0001F6E1",
-    "Sorcerer": "\U0001F525",
-    "Master Sorcerer": "\U0001F525",
-    "Paladin": "\U0001F3F9",
-    "Royal Paladin": "\U0001F3F9",
-}
+def split_message(message):  # pragma: no cover
+    """Splits a message into smaller messages if it exceeds the limit
 
-vocation_abbreviations = {
-    "Druid": "D",
-    "Elder Druid": "ED",
-    "Knight": "K",
-    "Elite Knight": "EK",
-    "Sorcerer": "S",
-    "Master Sorcerer": "MS",
-    "Paladin": "P",
-    "Royal Paladin": "RP",
-    "None": "N",
-}
+    :param message: The message to split
+    :type message: str
+    :return: The split message
+    :rtype: list of str"""
+    if len(message) <= 1900:
+        return [message]
+    else:
+        lines = message.splitlines()
+        new_message = ""
+        message_list = []
+        for line in lines:
+            if len(new_message+line+"\n") <= 1900:
+                new_message += line+"\n"
+            else:
+                message_list.append(new_message)
+                new_message = ""
+        if new_message:
+            message_list.append(new_message)
+        return message_list
 
 
-def announce_changes(guild_config, name, changes, joined, total):
-    new_member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji}"
-    member_format = "[{name}]({url}) - Level **{level}** **{vocation}** {emoji} - Rank: **{rank}** - " \
-                    "Joined: **{joined}**"
-    name_changed_format = "{former_name} \U00002192 [{name}]({url}) - Level **{level}** **{vocation}** {emoji} - " \
-                          "Rank: **{rank}**"
-    title_changed_format = "[{name}]({url}) - {old_title} \U00002192 {title} - Level **{level}** **{vocation}** {emoji} - " \
-                          "Rank: **{rank}**"
-    body = {
-        "username": guild["name"] if guild_config.get("override_name", False) else cfg.get("name"),
-        "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
-        "embeds": [],
-    }
-    joined_str = ""
+def compare_guilds(before, after):
+    """
+    Compares the same guild at different points in time, to obtain the changes made.
+
+    It returns all the changes found.
+
+    :param before: The state of the guild in the previous saved state.
+    :type before: Guild
+    :param after:  The current state of the guild.
+    :type after: Guild
+    :return: A list of all the changes found.
+    :rtype: list of Change
+    """
+    changes = []
+    ranks = after.ranks[:]
+    before_members = before.members[:]
+    after_members = after.members[:]
+    for member in before_members:  # type: GuildMember
+        found = False
+        for member_new in after_members:  # type: GuildMember
+            if member != member_new:
+                continue
+            # Member still in guild, remove it from list
+            after_members.remove(member_new)
+            found = True
+            # Rank changed
+            if member.rank != member_new.rank:
+                try:
+                    # Check if new rank position's is higher or lower
+                    if ranks.index(member.rank) < ranks.index(member_new.rank):
+                        changes.append(Change(ChangeType.DEMOTED, member_new))
+                        log.info("Member demoted: %s" % member_new.name)
+                    else:
+                        log.info("Member promoted: %s" % member_new.name)
+                        changes.append(Change(ChangeType.PROMOTED, member_new))
+                except ValueError:
+                    # This should be impossible
+                    log.error("Unexpected error: Member has a rank not present in list")
+            # Title changed
+            if member.title != member_new.title:
+                log.info("Member title changed from '%s' to '%s'" % (member.title, member_new.title))
+                changes.append(Change(ChangeType.TITLE_CHANGE, member_new, member.title))
+            break
+        if not found:
+            # We check if it was a namechange or character deleted
+            log.info("Checking character {0.name}".format(member))
+            char = get_character(member.name)
+            # Character was deleted (or maybe namelocked)
+            if char is None:
+                log.info("Member deleted: %s" % member.name)
+                changes.append(Change(ChangeType.DELETED, member))
+                continue
+            # Character has a new name and matches someone in guild, meaning it got a name change
+            _found = False
+            for _member in after_members:
+                if char.name == _member.name:
+                    after_members.remove(_member)
+                    changes.append(Change(ChangeType.NAME_CHANGE, _member, member.name))
+                    log.info("%s changed name to %s" % (member.name, _member.name))
+                    _found = True
+                    break
+            if _found:
+                continue
+            log.info("Member no longer in guild: " + member.name)
+            changes.append(Change(ChangeType.REMOVED, member))
+    joined = after_members[:]
+    changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
+    if len(joined) > 0:
+        log.info("New members found: " + ",".join(m.name for m in joined))
+
+    return changes
+
+def get_vocation_emoji(vocation):
+    """Returns an emoji to represent a character's vocation.
+
+    :param vocation: The vocation's name.
+    :type vocation: str
+    :return: The emoji that represents the vocation.
+    :rtype: str
+    """
+    return {
+        "Druid": "\U00002744",
+        "Elder Druid": "\U00002744",
+        "Knight": "\U0001F6E1",
+        "Elite Knight": "\U0001F6E1",
+        "Sorcerer": "\U0001F525",
+        "Master Sorcerer": "\U0001F525",
+        "Paladin": "\U0001F3F9",
+        "Royal Paladin": "\U0001F3F9",
+    }.get(vocation, "")
+
+
+def get_vocation_abbreviation(vocation):
+    """Gets an abbreviated string of the vocation.
+
+    :param vocation: The vocation's name
+    :type vocation: str
+    :return: The emoji that represents the vocation.
+    :rtype: str"""
+    return {
+        "Druid": "D",
+        "Elder Druid": "ED",
+        "Knight": "K",
+        "Elite Knight": "EK",
+        "Sorcerer": "S",
+        "Master Sorcerer": "MS",
+        "Paladin": "P",
+        "Royal Paladin": "RP",
+        "None": "N",
+    }.get(vocation, "")
+
+
+def build_embeds(changes):
+    """
+    Builds a list of discord embed.
+
+    Embeds consist of dictionaries, representing the JSON values.
+
+    :param changes: The changes to build the embed from
+    :type changes: list of Change
+    :return: A list of dictionaries representing embeds.
+    :rtype: list of dict
+    """
+    embeds = []
+    new_members = ""
     removed = ""
-    name_changed = ""
-    deleted = ""
     promoted = ""
     demoted = ""
-    title_changed = ""
+    title_changes = ""
+    name_changes = ""
+    deleted = ""
+    for change in changes:
+        vocation = get_vocation_abbreviation(change.member.vocation)
+        emoji = get_vocation_emoji(change.member.vocation)
+        if change.type == ChangeType.NEW_MEMBER:
+            new_members += FMT_NEW_MEMBER.format(m=change.member, v=vocation, e=emoji)
+        elif change.type == ChangeType.REMOVED:
+            removed += FMT_CHANGE.format(m=change.member, v=vocation, e=emoji)
+        elif change.type == ChangeType.DEMOTED:
+            demoted += FMT_CHANGE.format(m=change.member, v=vocation, e=emoji)
+        elif change.type == ChangeType.PROMOTED:
+            promoted += FMT_CHANGE.format(m=change.member, v=vocation, e=emoji)
+        elif change.type == ChangeType.DELETED:
+            deleted += FMT_CHANGE.format(m=change.member, v=vocation, e=emoji)
+        elif change.type == ChangeType.NAME_CHANGE:
+            name_changes += FMT_NAME_CHANGE.format(m=change.member, v=vocation, e=emoji, extra=change.extra)
+        elif change.type == ChangeType.TITLE_CHANGE:
+            title_changes += FMT_TITLE_CHANGE.format(m=change.member, v=vocation, e=emoji, extra=change.extra)
 
-    for m in (changes+joined):
-        m["url"] = "https://secure.tibia.com/community/?subtopic=characters&name=" + requests.utils.quote(m["name"])
-        m["emoji"] = vocation_emojis.get(m["vocation"], "")
-        m["vocation"] = vocation_abbreviations.get(m["vocation"], "")
-        change_type = m.get("type", "")
-        if change_type == "removed":
-            removed += member_format.format(**m) + "\n"
-        elif change_type == "promotion":
-            promoted += member_format.format(**m) + "\n"
-        elif change_type == "demotion":
-            demoted += member_format.format(**m) + "\n"
-        elif change_type == "namechange":
-            name_changed += name_changed_format.format(**m) + "\n"
-        elif change_type == "titlechange":
-            if m["old_title"] == "":
-                m["old_title"] = "None"
-            if m["title"] == "":
-                m["title"] = "None"
-            title_changed += title_changed_format.format(**m) + "\n"
-        elif change_type == "deleted":
-            deleted += member_format.format(**m) + "\n"
-        else:
-            joined_str += new_member_format.format(**m) + "\n"
-
-    if joined_str or deleted or removed:
-        body["content"] = "The guild now has **{0:,}** members.".format(total)
-
-    if joined_str:
-        title = "New member"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 361051, "title": title, "description": joined_str}
-        body["embeds"].append(new)
-
+    if new_members:
+        messages = split_message(new_members)
+        for message in messages:
+            embeds.append({"color": 361051, "title": "New member", "description": message})
     if removed:
-        title = "Member left or kicked"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16711680, "title": title, "description": removed}
-        body["embeds"].append(new)
-
+        messages = split_message(removed)
+        for message in messages:
+            embeds.append({"color": 16711680, "title": "Member left or kicked", "description": message})
     if promoted:
-        title = "Member promoted"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16776960, "title": title, "description": promoted}
-        body["embeds"].append(new)
-
+        messages = split_message(promoted)
+        for message in messages:
+            embeds.append({"color": 16776960, "title": "Member promoted", "description": message})
     if demoted:
-        title = "Member demoted"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16753920, "title": title, "description": demoted}
-        body["embeds"].append(new)
-
+        messages = split_message(demoted)
+        for message in messages:
+            embeds.append({"color": 16753920, "title": "Member demoted", "description": message})
     if deleted:
-        title = "Member deleted"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 0, "title": title, "description": deleted}
-        body["embeds"].append(new)
+        messages = split_message(deleted)
+        for message in messages:
+            embeds.append({"color": 0, "title": "Members deleted", "description": message})
+    if name_changes:
+        messages = split_message(name_changes)
+        for message in messages:
+            embeds.append({"color": 65535, "title": "Member changed name", "description": message})
+    if title_changes:
+        messages = split_message(title_changes)
+        for message in messages:
+            embeds.append({"color": 12915437, "title": "Title changed", "description": message})
+    return embeds
 
-    if name_changed:
-        title = "Member changed name"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 65535, "title": title, "description": name_changed}
-        body["embeds"].append(new)
 
-    if title_changed:
-        title = "Title changed"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 12915437, "title": title, "description": title_changed}
-        body["embeds"].append(new)
+def publish_changes(url, name, avatar, embeds, new_count=0):
+    """
+    Publish changes to discord through a webhook
 
-    requests.post(guild.get("webhook_url", guild_config.get("webhook_url", cfg.get("webhook_url"))),
-                  data=json.dumps(body), headers={"Content-Type": "application/json"})
+    :param url: The webhook's URL
+    :param embeds: List of dictionaries, containing the embeds with changes.
+    :param new_count: The new guild member count. If 0, no mention will be made.
+    :type url: str
+    :type embeds: list of dict
+    :type new_count: int
+    """
+    # Webhook messages have a limit of 6000 characters
+    # Can't display more than 10 embeds in one message
+    batches = []
+    current_batch = []
+    current_length = 0
+    for embed in embeds:
+        if current_length+len(embed["description"]) > 6000 or len(batches) == 10:
+            batches.append(current_batch)
+            current_length = 0
+            current_batch = []
+            continue
+        current_batch.append(embed)
+        current_length += len(embed["description"])
 
-if __name__ == "__main__":
+    batches.append(current_batch)
+
+    for i, batch in enumerate(batches):
+        body = {
+            "username": name,
+            "avatar_url": avatar,
+            "embeds": batch
+        }
+        if i == 0 and new_count > 0:
+            body["content"] = "The guild now has **%d** members." % new_count
+        try:
+            requests.post(url, data=json.dumps(body), headers={"Content-Type": "application/json"})
+        except requests.RequestException:
+            log.error("Couldn't publish changes.")
+
+
+def scan_guilds():
+    load_config()
     while True:
-        # Iterate each guild
-        for guild in cfg["guilds"]:
-            if guild.get("webhook_url", cfg.get("webhook_url")) is None:
+        # Iterate through each guild in the configuration file
+        for cfg_guild in cfg["guilds"]:
+            if cfg_guild.get("webhook_url", cfg.get("webhook_url")) is None:
                 log.error("Missing Webhook URL in config.json")
                 exit()
-            name = guild.get("name", None)
+            name = cfg_guild.get("name")
             if name is None:
-                log.error("Guild missing name.")
+                log.error("Guild is missing name.")
                 time.sleep(5)
                 continue
             guild_file = name+".data"
             guild_data = load_data(guild_file)
             if guild_data is None:
                 log.info(name + " - No previous data found. Saving current data.")
-                guild_data = get_guild_info(name)
-                error = guild_data.get("error")
-                if error is not None:
-                    log.error(name +" - Error: " + error)
+                guild_data = get_guild(name)
+                if guild_data is None:
+                    log.error(name + " - Error: Guild doesn't exist")
                     continue
                 save_data(guild_file, guild_data)
                 time.sleep(5)
                 continue
 
             log.info(name + " - Scanning guild...")
-            new_guild_data = get_guild_info(name)
-            error = new_guild_data.get("error")
-            if error is not None:
-                log.error(name + " - Error: "+error)
+            new_guild_data = get_guild(name)
+            if new_guild_data is None:
+                log.error(name + " - Error: Guild doesn't exist")
                 continue
             save_data(guild_file, new_guild_data)
-            changes = []
-            # Looping previously saved members
-            total_members = len(new_guild_data["members"])
-            for member in guild_data["members"]:
-                found = False
-                # Looping current members
-                for _member in new_guild_data["members"]:
-                    if member["name"] == _member["name"]:
-                        # Member still in guild, we remove it from list for faster iterating
-                        new_guild_data["members"].remove(_member)
-                        found = True
-                        # Rank changed
-                        if member["rank"] != _member["rank"]:
-                            try:
-                                if new_guild_data["ranks"].index(member["rank"]) < \
-                                        new_guild_data["ranks"].index(_member["rank"]):
-                                    # Demoted
-                                    log.info("Member demoted: " + _member["name"])
-                                    _member["type"] = "demotion"
-                                    changes.append(_member)
-                                else:
-                                    # Promoted
-                                    log.info("Member promoted: " + _member["name"])
-                                    _member["type"] = "promotion"
-                                    changes.append(_member)
-                            except ValueError:
-                                # Todo: Handle this
-                                pass
-                        # Title changed
-                        if member["title"] != _member["title"]:
-                            _member["type"] = "titlechange"
-                            _member["old_title"] = member["title"]
-                            log.info("Member title changed: {name} - {title}".format(**member))
-                            changes.append(_member)
-                        break
-                if not found:
-                    # We check if it was a namechange or character deleted
-                    log.info("Checking character {name}".format(**member))
-                    char = get_character(member["name"])
-                    # Character was deleted (or maybe namelocked)
-                    if char is None:
-                        member["type"] = "deleted"
-                        changes.append(member)
-                        continue
-                    # Character has a new name and matches someone in guild, meaning it got a name change
-                    _found = False
-                    for _member in new_guild_data["members"]:
-                        if char["name"] == _member["name"]:
-                            _member["former_name"] = member["name"]
-                            _member["type"] = "namechange"
-                            changes.append(_member)
-                            new_guild_data["members"].remove(_member)
-                            log.info("{former_name} changed name to {name}".format(**_member))
-                            _found = True
-                            break
-                    if _found:
-                        continue
-                    log.info("Member no longer in guild: " + member["name"])
-                    member["type"] = "removed"
-                    changes.append(member)
-            joined = new_guild_data["members"][:]
-            if len(joined) > 0:
-                log.info("New members found: " + ",".join(m["name"] for m in joined))
-            if guild["override_image"]:
-                guild["avatar_url"] = new_guild_data["logo_url"]
-            announce_changes(guild, name, changes, joined, total_members)
+            # Looping through members
+            member_count_before = guild_data.member_count
+            member_count = new_guild_data.member_count
+            if member_count == member_count_before:
+                member_count = 0
+            changes = compare_guilds(guild_data, new_guild_data)
+            if cfg_guild["override_image"]:
+                cfg_guild["avatar_url"] = new_guild_data.logo_url
+            embeds = build_embeds(changes)
+            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), guild_data.name,
+                            cfg_guild["avatar_url"], embeds, member_count)
             log.info(name + " - Scanning done")
             time.sleep(2)
-        time.sleep(5*60)
+        time.sleep(5 * 60)
 
 
+if __name__ == "__main__":
+    scan_guilds()

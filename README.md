@@ -1,11 +1,17 @@
-# GuildWatcher [![Build Status](https://travis-ci.org/Galarzaa90/GuildWatcher.svg?branch=master)](https://travis-ci.org/Galarzaa90/GuildWatcher)
+# GuildWatche
 
 A discord webhook that posts guild changes (member joins, members leaves, member promoted) in a Discord channel.
 
+![Travis (.org)](https://img.shields.io/travis/Galarzaa90/GuildWatcher.svg)
+[![GitHub (pre-)release](https://img.shields.io/github/release/Galarzaa90/GuildWatcher/all.svg)](https://github.com/Galarzaa90/GuildWatcher/releases)
+[![PyPI](https://img.shields.io/pypi/v/GuildWatcher.svg)](https://pypi.python.org/pypi/GuildWatcher/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/GuildWatcher.svg)
+![PyPI - License](https://img.shields.io/pypi/l/GuildWatcher.svg)
 
 ## Requirements:
-* Python 3.2 or higher with the following module:
-    * Requests
+* Python 3.5 or higher with the following module:
+    * requests
+    * tibia.py
 
 ## Configuring Webhooks
 1. On the desired channel, go to its settings and click on the **Webhooks** section.
