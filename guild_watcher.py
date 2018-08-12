@@ -2,7 +2,7 @@ import json
 import logging
 import pickle
 import time
-from enum import Enum, auto
+from enum import Enum
 
 import requests
 from tibiapy import Character, Guild, GuildMember
@@ -41,13 +41,13 @@ class Change:
 
 class ChangeType(Enum):
     """Contains all the possible changes that can be found."""
-    NEW_MEMBER = auto()  #: New member joined the guild.
-    DELETED = auto()  #: Member was deleted from the game.
-    REMOVED = auto()  #: Member was kicked or left the guild.
-    NAME_CHANGE = auto()  #: Member changed their name.
-    TITLE_CHANGE = auto()  #: Member title was changed.
-    DEMOTED = auto()  #: Member was demoted.
-    PROMOTED = auto()  #: Member was promoted.
+    NEW_MEMBER = 1  #: New member joined the guild.
+    DELETED = 2  #: Member was deleted from the game.
+    REMOVED = 3  #: Member was kicked or left the guild.
+    NAME_CHANGE = 4  #: Member changed their name.
+    TITLE_CHANGE = 5  #: Member title was changed.
+    DEMOTED = 6  #: Member was demoted.
+    PROMOTED = 7  #: Member was promoted.
 
 
 cfg = {}
