@@ -2,8 +2,8 @@ import sys
 
 from setuptools import setup
 
-if sys.version_info < (3, 3):
-    sys.exit('Sorry, Python < 3.3 is not supported')
+if sys.version_info < (3, 5):
+    sys.exit('Sorry, Python < 3.5 is not supported')
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
@@ -13,7 +13,7 @@ with open('README.md') as f:
 
 setup(
     name='guildwatcher',
-    version='0.1.0a1',
+    version='0.1.0',
     author='Allan Galarza',
     author_email="allan.galarza@gmail.com",
     description='A discord webhook to track Tibia guild changes.',
