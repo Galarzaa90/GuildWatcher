@@ -4,7 +4,7 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 
 
 ## Requirements:
-* Python 3.2 or higher with the following module:
+* Python 3.5 or higher with the following module:
     * Requests
 
 ## Configuring Webhooks

@@ -10,7 +10,6 @@ from guild_watcher import Change, ChangeType
 
 
 class TestGuildWatcher(unittest.TestCase):
-
     def testPromotedMember(self):
         guild_before = Guild(name="Test Guild", world="Antica")
         guild_after = Guild(name="Test Guild", world="Antica")
@@ -102,7 +101,7 @@ class TestGuildWatcher(unittest.TestCase):
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
         self.assertEqual(changes[0].type, guild_watcher.ChangeType.DELETED)
         self.assertEqual(changes[0].member.name, "Tschas")
-        guild_watcher.get_character.assert_called()
+        guild_watcher.get_character.assert_called_with("Tschas")
 
     def testMemberKicked(self):
         char = Character()
@@ -123,7 +122,7 @@ class TestGuildWatcher(unittest.TestCase):
         changes = guild_watcher.compare_guilds(guild_before, guild_after)
         self.assertEqual(changes[0].type, guild_watcher.ChangeType.REMOVED)
         self.assertEqual(changes[0].member.name, "Tschas")
-        guild_watcher.get_character.assert_called()
+        guild_watcher.get_character.assert_called_with("Tschas")
 
     def testMemberNameChanged(self):
         guild_before = Guild(name="Test Guild", world="Antica")
@@ -146,7 +145,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].type, guild_watcher.ChangeType.NAME_CHANGE)
         self.assertEqual(changes[0].member.name, "Tschis")
         self.assertEqual(changes[0].extra, "Tschas")
-        guild_watcher.get_character.assert_called()
+        guild_watcher.get_character.assert_called_with("Tschas")
 
     def testDataIntegrity(self):
         guild = Guild(name="Test Guild", world="Antica")
@@ -179,4 +178,4 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertTrue(embeds)
         requests.post = MagicMock()
         guild_watcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", None, None, embeds)
-        requests.post.assert_called_once()
+        requests.post.assert_called()
