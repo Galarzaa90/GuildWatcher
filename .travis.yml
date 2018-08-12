@@ -8,6 +8,8 @@ python:
 
 install:
   - pip install -r requirements.txt
+  - pip install -U setuptools wheel
 
 "script":
-- python -m compileall ./guild_watcher.py
+- python setup.py sdist bdist_wheel
+- python setup.py test
