@@ -178,4 +178,4 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertTrue(embeds)
         requests.post = MagicMock()
         guild_watcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", None, None, embeds)
-        requests.post.assert_called()
+        self.assertTrue(requests.post.call_count)
