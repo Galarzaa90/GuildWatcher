@@ -1,8 +1,9 @@
 import unittest
+from datetime import date
 from unittest.mock import MagicMock
 
+import requests
 from tibiapy import Guild, GuildMember, Character
-from datetime import date
 
 import guild_watcher
 from guild_watcher import Change, ChangeType
@@ -163,7 +164,19 @@ class TestGuildWatcher(unittest.TestCase):
     def testEmbeds(self):
         changes = [
             Change(ChangeType.NEW_MEMBER, GuildMember("Noob", "Recruit", level=19, vocation="Druid")),
-            Change(ChangeType.REMOVED, GuildMember("Noob", "Recruit", level=19, vocation="Druid", joined=date.today()))
+            Change(ChangeType.REMOVED, GuildMember("John", "Member", level=56, vocation="Druid", joined=date.today())),
+            Change(ChangeType.NAME_CHANGE, GuildMember("Tschis", "Vice", level=205, vocation="Druid"), "Tschas"),
+            Change(ChangeType.DELETED, GuildMember("Botter", "Vice", level=444, vocation="Elite Knight",
+                                                   joined=date.today())),
+            Change(ChangeType.TITLE_CHANGE, GuildMember("Nezune", level=404, rank="Vice", vocation="Elite Knight",
+                                                        title="Nab"), "Challenge Pls"),
+            Change(ChangeType.PROMOTED, GuildMember("Old", "Rank", level=142, vocation="Royal Paladin",
+                                                    joined=date.today())),
+            Change(ChangeType.DEMOTED, GuildMember("Jane", "Rank", level=89, vocation="Master Sorcerer",
+                                                   joined=date.today()))
         ]
         embeds = guild_watcher.build_embeds(changes)
-        print(embeds)
+        self.assertTrue(embeds)
+        requests.post = MagicMock()
+        guild_watcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", None, None, embeds)
+        requests.post.assert_called_once()

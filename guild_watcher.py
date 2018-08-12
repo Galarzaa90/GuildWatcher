@@ -18,7 +18,7 @@ log.addHandler(consoleHandler)
 # Change strings
 FMT_CHANGE = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e} - Rank: **{m.rank}** - Joined **{m.joined}**\n"
 FMT_NEW_MEMBER = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
-FMT_NAME_CHANGE = "{extra} -> [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
+FMT_NAME_CHANGE = "{extra} → [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** **{v}** {e}\n"
 
 
@@ -115,6 +115,30 @@ def get_guild(name, tries=5):  # pragma: no cover
     guild = Guild.from_content(content)
 
     return guild
+
+
+def split_message(message):  # pragma: no cover
+    """Splits a message into smaller messages if it exceeds the limit
+
+    :param message: The message to split
+    :type message: str
+    :return: The split message
+    :rtype: list of str"""
+    if len(message) <= 1900:
+        return [message]
+    else:
+        lines = message.splitlines()
+        new_message = ""
+        message_list = []
+        for line in lines:
+            if len(new_message+line+"\n") <= 1900:
+                new_message += line+"\n"
+            else:
+                message_list.append(new_message)
+                new_message = ""
+        if new_message:
+            message_list.append(new_message)
+        return message_list
 
 
 def compare_guilds(before, after):
@@ -267,118 +291,75 @@ def build_embeds(changes):
             title_changes += FMT_TITLE_CHANGE.format(m=change.member, v=vocation, e=emoji, extra=change.extra)
 
     if new_members:
-        embeds.append({"color": 361051, "title": "New member", "description": new_members})
+        messages = split_message(new_members)
+        for message in messages:
+            embeds.append({"color": 361051, "title": "New member", "description": message})
     if removed:
-        embeds.append({"color": 16711680, "title": "Member left or kicked", "description": removed})
+        messages = split_message(removed)
+        for message in messages:
+            embeds.append({"color": 16711680, "title": "Member left or kicked", "description": message})
     if promoted:
-        embeds.append({{"color": 16776960, "title": "Member promoted", "description": promoted}})
+        messages = split_message(promoted)
+        for message in messages:
+            embeds.append({"color": 16776960, "title": "Member promoted", "description": message})
     if demoted:
-        embeds.append({"color": 16753920, "title": "Member demoted", "description": demoted})
+        messages = split_message(demoted)
+        for message in messages:
+            embeds.append({"color": 16753920, "title": "Member demoted", "description": message})
     if deleted:
-        embeds.append({"color": 0, "title": "Members deleted", "description": deleted})
+        messages = split_message(deleted)
+        for message in messages:
+            embeds.append({"color": 0, "title": "Members deleted", "description": message})
     if name_changes:
-        embeds.append({"color": 65535, "title": "Member changed name", "description": name_changes})
+        messages = split_message(name_changes)
+        for message in messages:
+            embeds.append({"color": 65535, "title": "Member changed name", "description": message})
     if title_changes:
-        embeds.append({"color": 12915437, "title": "Title changed", "description": title_changes})
+        messages = split_message(title_changes)
+        for message in messages:
+            embeds.append({"color": 12915437, "title": "Title changed", "description": message})
     return embeds
 
 
-def announce_changes(guild_config, name, changes, joined, total):
-    new_member_format = "[{m.name}]({m.url}) - Level **{m.level}** **{m.vocation}** {emoji}"
-    member_format = "[{m.name}]({m.url}) - Level **{m.level}** **{m.vocation}** {emoji} - Rank: **{m.rank}** - " \
-                    "Joined: **{m.joined}**"
-    name_changed_format = "{former_name} → [{m.name}]({m.url}) - Level **{m.level}** **{m.vocation}** {emoji} - " \
-                          "Rank: **{m.rank}**"
-    title_changed_format = "[{m.name}]({m.url}) - {old_title} → {m.title} " \
-                           "- Level **{m.level}** **{m.vocation}** {emoji} - Rank: **{m.rank}**"
-    body = {
-        "username": name if guild_config.get("override_name", False) else cfg.get("name"),
-        "avatar_url": guild_config.get("avatar_url", cfg.get("avatar_url")),
-        "embeds": [],
-    }
-    joined_str = ""
-    removed = ""
-    name_changed = ""
-    deleted = ""
-    promoted = ""
-    demoted = ""
-    title_changed = ""
+def publish_changes(url, name, avatar, embeds, new_count=0):
+    """
+    Publish changes to discord through a webhook
 
-    for change in changes:
-        emoji = vocation_emojis.get(change["member"].vocation, "")
-        change["member"].vocation = vocation_abbreviations.get(change["member"].vocation, "")
-        if change["type"] == "promotion":
-            promoted += member_format.format(m=change["member"], emoji=emoji) + "\n"
-        if change["type"] == "removed":
-            removed += member_format.format(m=change["member"], emoji=emoji) + "\n"
-        if change["type"] == "demotion":
-            demoted += member_format.format(m=change["member"], emoji=emoji) + "\n"
-        if change["type"] == "name_change":
-            name_changed += name_changed_format.format(m=change["member"], emoji=emoji,
-                                                       former_name=change["former_name"]) + "\n"
-        if change["type"] == "title":
-            title_changed += title_changed_format.format(m=change["member"], emoji=emoji,
-                                                         old_title=change["old_title"]) + "\n"
+    :param url: The webhook's URL
+    :param embeds: List of dictionaries, containing the embeds with changes.
+    :param new_count: The new guild member count. If 0, no mention will be made.
+    :type url: str
+    :type embeds: list of dict
+    :type new_count: int
+    """
+    # Webhook messages have a limit of 6000 characters
+    # Can't display more than 10 embeds in one message
+    batches = []
+    current_batch = []
+    current_length = 0
+    for embed in embeds:
+        if current_length+len(embed["description"]) > 6000 or len(batches) == 10:
+            batches.append(current_batch)
+            current_length = 0
+            current_batch = []
+            continue
+        current_batch.append(embed)
+        current_length += len(embed["description"])
 
-    for join in joined:
-        emoji = vocation_emojis.get(join.vocation, "")
-        join.vocation = vocation_abbreviations.get(join.vocation, "")
-        joined_str += new_member_format.format(m=join, emoji=emoji) + "\n"
+    batches.append(current_batch)
 
-    if joined_str or deleted or removed:
-        body["content"] = "The guild now has **{0:,}** members.".format(total)
-
-    if joined_str:
-        title = "New member"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 361051, "title": title, "description": joined_str}
-        body["embeds"].append(new)
-
-    if removed:
-        title = "Member left or kicked"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16711680, "title": title, "description": removed}
-        body["embeds"].append(new)
-
-    if promoted:
-        title = "Member promoted"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16776960, "title": title, "description": promoted}
-        body["embeds"].append(new)
-
-    if demoted:
-        title = "Member demoted"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 16753920, "title": title, "description": demoted}
-        body["embeds"].append(new)
-
-    if deleted:
-        title = "Member deleted"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 0, "title": title, "description": deleted}
-        body["embeds"].append(new)
-
-    if name_changed:
-        title = "Member changed name"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 65535, "title": title, "description": name_changed}
-        body["embeds"].append(new)
-
-    if title_changed:
-        title = "Title changed"
-        if not guild_config.get("override_name", False):
-            title += " in {0}".format(name) if len(cfg["guilds"]) > 1 else ""
-        new = {"color": 12915437, "title": title, "description": title_changed}
-        body["embeds"].append(new)
-
-    requests.post(guild_config.get("webhook_url", cfg.get("webhook_url")),
-                  data=json.dumps(body), headers={"Content-Type": "application/json"})
+    for i, batch in enumerate(batches):
+        body = {
+            "username": name,
+            "avatar_url": avatar,
+            "embeds": batch
+        }
+        if i == 0 and new_count > 0:
+            body["content"] = "The guild now has **%d** members." % new_count
+        try:
+            requests.post(url, data=json.dumps(body), headers={"Content-Type": "application/json"})
+        except requests.RequestException:
+            log.error("Couldn't publish changes.")
 
 
 def scan_guilds():
@@ -406,18 +387,23 @@ def scan_guilds():
                 time.sleep(5)
                 continue
 
-            log.info(name + "- Scanning guild...")
+            log.info(name + " - Scanning guild...")
             new_guild_data = get_guild(name)
             if new_guild_data is None:
                 log.error(name + " - Error: Guild doesn't exist")
                 continue
             save_data(guild_file, new_guild_data)
             # Looping through members
-            total_members = new_guild_data.member_count
+            member_count_before = guild_data.member_count
+            member_count = new_guild_data.member_count
+            if member_count == member_count_before:
+                member_count = 0
             changes = compare_guilds(guild_data, new_guild_data)
             if cfg_guild["override_image"]:
                 cfg_guild["avatar_url"] = new_guild_data.logo_url
-            announce_changes(cfg_guild, name, changes, total_members)
+            embeds = build_embeds(changes)
+            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), guild_data.name,
+                            cfg_guild["avatar_url"], embeds, member_count)
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)
