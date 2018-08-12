@@ -21,7 +21,7 @@ test:
   stage: test
   script:
       - pip install coverage
-      - coverage run --omit venv/* setup.py test
+      - coverage run setup.py test
       - coverage report
       - coverage html
   artifacts:
