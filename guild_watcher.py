@@ -5,7 +5,7 @@ import time
 from enum import Enum
 
 import requests
-from tibiapy import Character, Guild, GuildMember
+from tibiapy import Character, Guild
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -158,9 +158,9 @@ def compare_guilds(before, after):
     ranks = after.ranks[:]
     before_members = before.members[:]
     after_members = after.members[:]
-    for member in before_members:  # type: GuildMember
+    for member in before_members:
         found = False
-        for member_new in after_members:  # type: GuildMember
+        for member_new in after_members:
             if member != member_new:
                 continue
             # Member still in guild, remove it from list
@@ -212,6 +212,7 @@ def compare_guilds(before, after):
         log.info("New members found: " + ",".join(m.name for m in joined))
 
     return changes
+
 
 def get_vocation_emoji(vocation):
     """Returns an emoji to represent a character's vocation.
@@ -321,15 +322,19 @@ def build_embeds(changes):
     return embeds
 
 
-def publish_changes(url, name, avatar, embeds, new_count=0):
+def publish_changes(url, embeds, name=None, avatar=None, new_count=0):
     """
     Publish changes to discord through a webhook
 
     :param url: The webhook's URL
     :param embeds: List of dictionaries, containing the embeds with changes.
+    :param name: The poster's name, if None, the name assigned when creating the webhook will be used.
+    :param avatar: The URL to the avatar to use, if None, the avatar assigned at creation will be used.
     :param new_count: The new guild member count. If 0, no mention will be made.
     :type url: str
     :type embeds: list of dict
+    :type name: str
+    :type avatar: str
     :type new_count: int
     """
     # Webhook messages have a limit of 6000 characters
@@ -402,8 +407,8 @@ def scan_guilds():
             if cfg_guild["override_image"]:
                 cfg_guild["avatar_url"] = new_guild_data.logo_url
             embeds = build_embeds(changes)
-            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), guild_data.name,
-                            cfg_guild["avatar_url"], embeds, member_count)
+            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), embeds, guild_data.name,
+                            cfg_guild["avatar_url"], member_count)
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)
