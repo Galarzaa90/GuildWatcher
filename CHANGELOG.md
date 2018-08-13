@@ -1,4 +1,8 @@
 # Changelog
+## Version 0.1.1 (2018-08-12)
+- Fixed script entry point
+- Renamed script to `guildwatcher` for consistency
+
 ## Version 0.1.0 (2018-08-11)
 Initial release
 - Announces when members join.

@@ -46,8 +46,10 @@ If installed using pip, you can run the script in one of two ways:
 guildwatcher
 ```
 
+or
+
 ```commandline
-python -m guild
+python -m guildwatcher
 ```
 
 ## Current Features

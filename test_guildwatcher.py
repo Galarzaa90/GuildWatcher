@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import requests
 from tibiapy import Guild, GuildMember, Character
 
-import guild_watcher
-from guild_watcher import Change, ChangeType
+import guildwatcher
+from guildwatcher import Change, ChangeType
 
 
 class TestGuildWatcher(unittest.TestCase):
@@ -32,8 +32,8 @@ class TestGuildWatcher(unittest.TestCase):
         promoted_member = self.guild_after.members[6]
         promoted_member.rank = new_rank
 
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.PROMOTED)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.PROMOTED)
         self.assertEqual(changes[0].member.name, promoted_member.name)
         self.assertEqual(changes[0].member.rank, promoted_member.rank)
 
@@ -42,8 +42,8 @@ class TestGuildWatcher(unittest.TestCase):
         demoted_member = self.guild_after.members[5]
         demoted_member.rank = new_rank
 
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.DEMOTED)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.DEMOTED)
         self.assertEqual(changes[0].member.name, demoted_member.name)
         self.assertEqual(changes[0].member.rank, demoted_member.rank)
 
@@ -51,8 +51,8 @@ class TestGuildWatcher(unittest.TestCase):
         new_member = GuildMember("Noob", "Recruit", level=12, vocation="Knight")
         self.guild_after.members.append(new_member)
 
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.NEW_MEMBER)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.NEW_MEMBER)
         self.assertEqual(changes[0].member.name, new_member.name)
 
     def testTitleChange(self):
@@ -60,8 +60,8 @@ class TestGuildWatcher(unittest.TestCase):
         affected_member = self.guild_after.members[1]
         old_title = affected_member.title
         affected_member.title = new_title
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.TITLE_CHANGE)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.TITLE_CHANGE)
         self.assertEqual(changes[0].member.name, affected_member.name)
         self.assertEqual(changes[0].member.title, new_title)
         self.assertEqual(changes[0].extra, old_title)
@@ -71,24 +71,24 @@ class TestGuildWatcher(unittest.TestCase):
         kicked = self.guild_after.members.pop(6)
 
         # Mock get_character to imitate non existing character
-        guild_watcher.get_character = MagicMock(return_value=None)
+        guildwatcher.get_character = MagicMock(return_value=None)
 
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.DELETED)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.DELETED)
         self.assertEqual(changes[0].member.name, kicked.name)
-        guild_watcher.get_character.assert_called_with(kicked.name)
+        guildwatcher.get_character.assert_called_with(kicked.name)
 
     def testMemberKicked(self):
         # Kick member at position 1
         kicked = self.guild_after.members.pop(1)
 
         # Mock get_character to imitate existing character
-        guild_watcher.get_character = MagicMock(return_value=Character(name=kicked.name))
+        guildwatcher.get_character = MagicMock(return_value=Character(name=kicked.name))
 
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.REMOVED)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.REMOVED)
         self.assertEqual(changes[0].member.name, kicked.name)
-        guild_watcher.get_character.assert_called_with(kicked.name)
+        guildwatcher.get_character.assert_called_with(kicked.name)
 
     def testMemberNameChanged(self):
         # Change name of first member
@@ -98,19 +98,19 @@ class TestGuildWatcher(unittest.TestCase):
         affected_member.name = new_name
 
         # Checking the missing character should return the new name
-        guild_watcher.get_character = MagicMock(return_value=Character(name=new_name))
+        guildwatcher.get_character = MagicMock(return_value=Character(name=new_name))
 
-        changes = guild_watcher.compare_guilds(self.guild, self.guild_after)
-        self.assertEqual(changes[0].type, guild_watcher.ChangeType.NAME_CHANGE)
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.NAME_CHANGE)
         self.assertEqual(changes[0].member.name, new_name)
         self.assertEqual(changes[0].extra, old_name)
-        guild_watcher.get_character.assert_called_with(old_name)
+        guildwatcher.get_character.assert_called_with(old_name)
 
     def testDataIntegrity(self):
-        guild_watcher.save_data(".tmp.data", self.guild)
-        saved_guild = guild_watcher.load_data(".tmp.data")
+        guildwatcher.save_data(".tmp.data", self.guild)
+        saved_guild = guildwatcher.load_data(".tmp.data")
 
-        changes = guild_watcher.compare_guilds(self.guild, saved_guild)
+        changes = guildwatcher.compare_guilds(self.guild, saved_guild)
 
         self.assertFalse(changes)
 
@@ -128,8 +128,8 @@ class TestGuildWatcher(unittest.TestCase):
             Change(ChangeType.DEMOTED, GuildMember("Jane", "Rank", level=89, vocation="Master Sorcerer",
                                                    joined=date.today()))
         ]
-        embeds = guild_watcher.build_embeds(changes)
+        embeds = guildwatcher.build_embeds(changes)
         self.assertTrue(embeds)
         requests.post = MagicMock()
-        guild_watcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", embeds)
+        guildwatcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", embeds)
         self.assertTrue(requests.post.call_count)
