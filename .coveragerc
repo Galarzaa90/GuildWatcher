@@ -1,6 +1,6 @@
 [run]
 include =
-    guild_watcher.py
+    guildwatcher.py
 
 [report]
 exclude_lines =

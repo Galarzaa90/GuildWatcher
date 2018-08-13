@@ -5,7 +5,7 @@ import time
 from enum import Enum
 
 import requests
-from tibiapy import Character, Guild, GuildMember
+import tibiapy
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -34,8 +34,8 @@ class Change:
     :type extra: Optional[Any]
     """
     def __init__(self, _type, member, extra=None):
-        self.member = member  # type: GuildMember
-        self.type = _type  # type: ChangeType
+        self.member = member
+        self.type = _type
         self.extra = extra
 
 
@@ -54,6 +54,7 @@ cfg = {}
 
 
 def load_config():
+    """Loads and validates the configuration file."""
     global cfg
     try:
         with open('config.json') as json_data:
@@ -67,11 +68,22 @@ def load_config():
 
 
 def save_data(file, data):
+    """
+    Saves a guild's data to a file.
+    :param file: The file's path to save to
+    :param data: The guild's data.
+    """
     with open(file, "wb") as f:
         pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def load_data(file):
+    """
+    Loads guild data from a file.
+    :param file: The file path to look for.
+    :return: The guild's data, if available.
+    :rtype: tibiapy.Guild
+    """
     try:
         with open(file, "rb") as f:
             return pickle.load(f)
@@ -82,8 +94,17 @@ def load_data(file):
 
 
 def get_character(name, tries=5):  # pragma: no cover
+    """
+    Gets information about a character from Tibia.com
+    :param name: The name of the character.
+    :param tries: The maximum amount of retries before giving up.
+    :return: The character's information
+    :type name: str
+    :type tries: int
+    :rtype: tibiapy.Character
+    """
     try:
-        url = Character.get_url(name)
+        url = tibiapy.Character.get_url(name)
     except UnicodeEncodeError:
         return None
 
@@ -97,13 +118,22 @@ def get_character(name, tries=5):  # pragma: no cover
         else:
             tries -= 1
             return get_character(name, tries)
-    char = Character.from_content(content)
+    char = tibiapy.Character.from_content(content)
     return char
 
 
 def get_guild(name, tries=5):  # pragma: no cover
+    """
+    Gets information about a guild from Tibia.com
+    :param name: The name of the guild. Case sensitive.
+    :param tries: The maximum amount of retries before giving up.
+    :return: The guild's information
+    :type name: str
+    :type tries: int
+    :rtype: tibiapy.Guild
+    """
     try:
-        r = requests.get(Guild.get_url(name))
+        r = requests.get(tibiapy.Guild.get_url(name))
         content = r.text
     except requests.RequestException:
         if tries == 0:
@@ -112,7 +142,7 @@ def get_guild(name, tries=5):  # pragma: no cover
             tries -= 1
             return get_guild(name, tries)
 
-    guild = Guild.from_content(content)
+    guild = tibiapy.Guild.from_content(content)
 
     return guild
 
@@ -148,9 +178,9 @@ def compare_guilds(before, after):
     It returns all the changes found.
 
     :param before: The state of the guild in the previous saved state.
-    :type before: Guild
+    :type before: tibiapy.Guild
     :param after:  The current state of the guild.
-    :type after: Guild
+    :type after: tibiapy.Guild
     :return: A list of all the changes found.
     :rtype: list of Change
     """
@@ -158,9 +188,9 @@ def compare_guilds(before, after):
     ranks = after.ranks[:]
     before_members = before.members[:]
     after_members = after.members[:]
-    for member in before_members:  # type: GuildMember
+    for member in before_members:
         found = False
-        for member_new in after_members:  # type: GuildMember
+        for member_new in after_members:
             if member != member_new:
                 continue
             # Member still in guild, remove it from list
@@ -212,6 +242,7 @@ def compare_guilds(before, after):
         log.info("New members found: " + ",".join(m.name for m in joined))
 
     return changes
+
 
 def get_vocation_emoji(vocation):
     """Returns an emoji to represent a character's vocation.
@@ -321,15 +352,19 @@ def build_embeds(changes):
     return embeds
 
 
-def publish_changes(url, name, avatar, embeds, new_count=0):
+def publish_changes(url, embeds, name=None, avatar=None, new_count=0):
     """
     Publish changes to discord through a webhook
 
     :param url: The webhook's URL
     :param embeds: List of dictionaries, containing the embeds with changes.
+    :param name: The poster's name, if None, the name assigned when creating the webhook will be used.
+    :param avatar: The URL to the avatar to use, if None, the avatar assigned at creation will be used.
     :param new_count: The new guild member count. If 0, no mention will be made.
     :type url: str
     :type embeds: list of dict
+    :type name: str
+    :type avatar: str
     :type new_count: int
     """
     # Webhook messages have a limit of 6000 characters
@@ -396,14 +431,15 @@ def scan_guilds():
             # Looping through members
             member_count_before = guild_data.member_count
             member_count = new_guild_data.member_count
+            # Only publish count if it changed
             if member_count == member_count_before:
                 member_count = 0
             changes = compare_guilds(guild_data, new_guild_data)
             if cfg_guild["override_image"]:
                 cfg_guild["avatar_url"] = new_guild_data.logo_url
             embeds = build_embeds(changes)
-            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), guild_data.name,
-                            cfg_guild["avatar_url"], embeds, member_count)
+            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), embeds, guild_data.name,
+                            cfg_guild["avatar_url"], member_count)
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)
