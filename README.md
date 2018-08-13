@@ -8,22 +8,47 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/GuildWatcher.svg)
 ![PyPI - License](https://img.shields.io/pypi/l/GuildWatcher.svg)
 
-## Requirements:
-* Python 3.5 or higher with the following module:
-    * requests
-    * tibia.py
+## Installing
+Install and update using pip:
+```commandline
+pip install guildwatcher -U
+```
+
+or
+
+Install the latest version from GitHub
+```commandline
+pip install git+https://github.com/Galarzaa90/GuildWatcher.git -U
+```
+
+or
+
+Download/Clone files, install requirements and run `guild_watcher.py`
+```commandline
+pip install -r requirements.txt
+```
 
 ## Configuring Webhooks
 1. On the desired channel, go to its settings and click on the **Webhooks** section.
 1. Click on **Create Webhook**.
-1. Change the bot's name and avatar to whatever you prefer.
-    * You can also edit config.json to override the bot's username and avatar
-1. Rename **config-example.json** to **config.json** and edit it.
-    * "*name*" and "*avatar_url*" are optional parameters, they can be left blank or removed. 
-    If used, those values will be used instead of the ones set in the webhook configuration screen in discord.
-    * Add as many guilds as you like. If "*override_name*" or "*override_image*" is used, the message will show the 
-    guild's name and/or picture instead.
-1. Run the script.
+1. Customize the avatar as needed.
+1. Copy the webhook's URL.
+1. Create a file named **config.json** and edit it, basing it on **config-example.json**.
+    * The top level `webhook_url` will be used, but if you want another guild to use a different URL, you can specify one for that guild.
+    * If `override_image` is added to the guild, its logo will be used instead.
+    
+## Running the script
+- `config.json` must be in the same directory you're running the script from.
+- The script generates `.data` files, named after the guilds, these save the last state of the guild, to compare it with the current state.
+
+If installed using pip, you can run the script in one of two ways:
+```commandline
+guildwatcher
+```
+
+```commandline
+python -m guild
+```
 
 ## Current Features
 * Announces when a member joins

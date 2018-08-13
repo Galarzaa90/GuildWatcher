@@ -1,11 +1,9 @@
 {
   "__comment__": "To use this file, rename it to config.json",
-  "webhook_url": "http://discord.webhook.url.goes.here",
-  "name": "Bot Name (optional)",
-  "avatar_url": "http://avatar.url.optional/",
+  "webhook_url": "http://discord.webhook.url.goes.here"
   "guilds": [
-    {"name": "Redd Alliance", "override_name": true, "override_image": true},
-    {"name": "Another guild", "override_image": true},
+    {"name": "Redd Alliance", "override_image": true},
+    {"name": "Another guild"},
     {"name": "Yet another guild"},
     {"name": "Guild with announcements on diff channel", "webhook_url": "http://discord.webhook.url.goes.here"}
   ]
