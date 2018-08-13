@@ -20,7 +20,7 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     url='https://github.com/Galarzaa90/GuildWatcher',
-    py_modules=['guild_watcher'],
+    py_modules=['guildwatcher'],
     install_requires=requirements,
     entry_points='''
         [console_scripts]
