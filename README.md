@@ -23,7 +23,7 @@ pip install git+https://github.com/Galarzaa90/GuildWatcher.git -U
 
 or
 
-Download/Clone files, install requirements and run `guild_watcher.py`
+Download/Clone files, install requirements and run `guildwatcher.py`
 ```commandline
 pip install -r requirements.txt
 ```
