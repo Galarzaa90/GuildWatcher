@@ -1,4 +1,4 @@
-# GuildWatche
+# GuildWatcher
 
 A discord webhook that posts guild changes (member joins, members leaves, member promoted) in a Discord channel.
 
