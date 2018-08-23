@@ -188,14 +188,15 @@ def compare_guilds(before, after):
     ranks = after.ranks[:]
     before_members = before.members[:]
     after_members = after.members[:]
+    # Members no longer in guild. Some may have changed name.
+    removed_members = [m for m in before_members if m not in after_members]
+    joined = [m for m in after_members if m not in before_members]
     for member in before_members:
-        found = False
         for member_new in after_members:
             if member != member_new:
                 continue
-            # Member still in guild, remove it from list
+            # Remove member from list to reduce iterating
             after_members.remove(member_new)
-            found = True
             # Rank changed
             if member.rank != member_new.rank:
                 try:
@@ -214,33 +215,31 @@ def compare_guilds(before, after):
                 log.info("Member title changed from '%s' to '%s'" % (member.title, member_new.title))
                 changes.append(Change(ChangeType.TITLE_CHANGE, member_new, member.title))
             break
-        if not found:
-            # We check if it was a namechange or character deleted
-            log.info("Checking character {0.name}".format(member))
-            char = get_character(member.name)
-            # Character was deleted (or maybe namelocked)
-            if char is None:
-                log.info("Member deleted: %s" % member.name)
-                changes.append(Change(ChangeType.DELETED, member))
-                continue
-            # Character has a new name and matches someone in guild, meaning it got a name change
-            _found = False
-            for _member in after_members:
-                if char.name == _member.name:
-                    after_members.remove(_member)
-                    changes.append(Change(ChangeType.NAME_CHANGE, _member, member.name))
-                    log.info("%s changed name to %s" % (member.name, _member.name))
-                    _found = True
-                    break
-            if _found:
-                continue
-            log.info("Member no longer in guild: " + member.name)
-            changes.append(Change(ChangeType.REMOVED, member))
-    joined = after_members[:]
+    for member in removed_members:
+        # We check if it was a namechange or character deleted
+        log.info("Checking character {0.name}".format(member))
+        char = get_character(member.name)
+        # Character was deleted (or maybe namelocked)
+        if char is None:
+            log.info("Member deleted: %s" % member.name)
+            changes.append(Change(ChangeType.DELETED, member))
+            continue
+        # Character has a new name and matches someone in guild, meaning it got a name change
+        _found = False
+        for _member in after_members:
+            if char.name == _member.name:
+                after_members.remove(_member)
+                changes.append(Change(ChangeType.NAME_CHANGE, _member, member.name))
+                log.info("%s changed name to %s" % (member.name, _member.name))
+                _found = True
+                break
+        if _found:
+            continue
+        log.info("Member no longer in guild: " + member.name)
+        changes.append(Change(ChangeType.REMOVED, member))
     changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
     if len(joined) > 0:
         log.info("New members found: " + ",".join(m.name for m in joined))
-
     return changes
 
 
