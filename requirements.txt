@@ -1,2 +1,2 @@
 requests
-tibia.py
+tibia.py==0.*

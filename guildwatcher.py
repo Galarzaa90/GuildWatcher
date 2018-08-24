@@ -14,12 +14,27 @@ consoleHandler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(mess
 consoleHandler.setLevel(logging.DEBUG)
 log.addHandler(consoleHandler)
 
+# Embed colors
+CLR_NEW_MEMBER = 361051  # 05825B
+CLR_REMOVED_MEMBER = 16711680  # FF0000
+CLR_PROMOTED = 16776960  # FFFF00
+CLR_DEMOTED = 16753920  # FFA500
+CLR_DELETED = 0  # 000000
+CLR_NAME_CHANGE = 65535  # 00FFFF
+CLR_TITLE_CHANGE = 12915437  # C512ED
+CLR_INVITE_REMOVED = 16738662  # FF6966
+CLR_NEW_INVITE = 8254857  # 7DF589
 
 # Change strings
+# m -> Member related to the change
+# e -> Emoji representing the character's vocation
+# v -> Abbreviated vocation
+# extra -> Extra argument, related to the change.
 FMT_CHANGE = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e} - Rank: **{m.rank}** - Joined **{m.joined}**\n"
 FMT_NEW_MEMBER = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_NAME_CHANGE = "{extra} → [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** **{v}** {e}\n"
+FMT_INVITE_CHANGE = "[{m.name}]({m.url}) - Invited: **{m.date}**\n"
 
 
 class Change:
@@ -29,10 +44,11 @@ class Change:
     :ivar member: The member involved
     :ivar type: The change type.
     :ivar extra: Extra information related to the change.
-    :type member: GuildMember
+    :type member: abc.Character
     :type type: str
     :type extra: Optional[Any]
     """
+
     def __init__(self, _type, member, extra=None):
         self.member = member
         self.type = _type
@@ -48,7 +64,8 @@ class ChangeType(Enum):
     TITLE_CHANGE = 5  #: Member title was changed.
     DEMOTED = 6  #: Member was demoted.
     PROMOTED = 7  #: Member was promoted.
-
+    INVITE_REMOVED = 8  #: Invitation was removed or rejected.
+    NEW_INVITE = 9  #: New invited
 
 cfg = {}
 
@@ -186,61 +203,71 @@ def compare_guilds(before, after):
     """
     changes = []
     ranks = after.ranks[:]
-    before_members = before.members[:]
-    after_members = after.members[:]
-    for member in before_members:
-        found = False
-        for member_new in after_members:
-            if member != member_new:
+    # Members no longer in guild. Some may have changed name.
+    removed_members = [m for m in before.members if m not in after.members]
+    joined = [m for m in after.members if m not in before.members]
+    for member in before.members:
+        for member_after in after.members:
+            if member != member_after:
                 continue
-            # Member still in guild, remove it from list
-            after_members.remove(member_new)
-            found = True
             # Rank changed
-            if member.rank != member_new.rank:
+            if member.rank != member_after.rank:
                 try:
                     # Check if new rank position's is higher or lower
-                    if ranks.index(member.rank) < ranks.index(member_new.rank):
-                        changes.append(Change(ChangeType.DEMOTED, member_new))
-                        log.info("Member demoted: %s" % member_new.name)
+                    if ranks.index(member.rank) < ranks.index(member_after.rank):
+                        changes.append(Change(ChangeType.DEMOTED, member_after))
+                        log.info("Member demoted: %s" % member_after.name)
                     else:
-                        log.info("Member promoted: %s" % member_new.name)
-                        changes.append(Change(ChangeType.PROMOTED, member_new))
+                        log.info("Member promoted: %s" % member_after.name)
+                        changes.append(Change(ChangeType.PROMOTED, member_after))
                 except ValueError:
                     # This should be impossible
                     log.error("Unexpected error: Member has a rank not present in list")
             # Title changed
-            if member.title != member_new.title:
-                log.info("Member title changed from '%s' to '%s'" % (member.title, member_new.title))
-                changes.append(Change(ChangeType.TITLE_CHANGE, member_new, member.title))
+            if member.title != member_after.title:
+                log.info("Member title changed from '%s' to '%s'" % (member.title, member_after.title))
+                changes.append(Change(ChangeType.TITLE_CHANGE, member_after, member.title))
             break
+    for member in removed_members:
+        # We check if it was a namechange or character deleted
+        log.info("Checking character {0.name}".format(member))
+        char = get_character(member.name)
+        # Character was deleted (or maybe namelocked)
+        if char is None:
+            log.info("Member deleted: %s" % member.name)
+            changes.append(Change(ChangeType.DELETED, member))
+            continue
+        # Character has a new name and matches someone in guild, meaning it got a name change
+        found = False
+        for _member in joined:
+            if char.name == _member.name:
+                joined.remove(_member)
+                changes.append(Change(ChangeType.NAME_CHANGE, _member, member.name))
+                log.info("%s changed name to %s" % (member.name, _member.name))
+                found = True
+                break
         if not found:
-            # We check if it was a namechange or character deleted
-            log.info("Checking character {0.name}".format(member))
-            char = get_character(member.name)
-            # Character was deleted (or maybe namelocked)
-            if char is None:
-                log.info("Member deleted: %s" % member.name)
-                changes.append(Change(ChangeType.DELETED, member))
-                continue
-            # Character has a new name and matches someone in guild, meaning it got a name change
-            _found = False
-            for _member in after_members:
-                if char.name == _member.name:
-                    after_members.remove(_member)
-                    changes.append(Change(ChangeType.NAME_CHANGE, _member, member.name))
-                    log.info("%s changed name to %s" % (member.name, _member.name))
-                    _found = True
-                    break
-            if _found:
-                continue
             log.info("Member no longer in guild: " + member.name)
             changes.append(Change(ChangeType.REMOVED, member))
-    joined = after_members[:]
     changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
     if len(joined) > 0:
         log.info("New members found: " + ",".join(m.name for m in joined))
 
+    new_invites = [i for i in after.invites if i not in before.invites]
+    removed_invites = [i for i in before.invites if i not in after.invites]
+    # Check if invitation got removed or member joined
+    for removed_invite in removed_invites:
+        accepted = False
+        for new_member in joined:
+            if new_member.name == removed_invite.name:
+                accepted = True
+                break
+        if not accepted:
+            log.info("Invite rejected or removed: " + removed_invite.name)
+            changes.append(Change(ChangeType.INVITE_REMOVED, removed_invite))
+    changes += [Change(ChangeType.NEW_INVITE, i) for i in new_invites]
+    if len(new_invites) > 0:
+        log.info("New invites found: " + ",".join(m.name for m in new_invites))
     return changes
 
 
@@ -303,9 +330,14 @@ def build_embeds(changes):
     title_changes = ""
     name_changes = ""
     deleted = ""
+    new_invites = ""
+    removed_invites = ""
     for change in changes:
-        vocation = get_vocation_abbreviation(change.member.vocation)
-        emoji = get_vocation_emoji(change.member.vocation)
+        try:
+            vocation = get_vocation_abbreviation(change.member.vocation)
+            emoji = get_vocation_emoji(change.member.vocation)
+        except AttributeError:
+            vocation, emoji = None, None
         if change.type == ChangeType.NEW_MEMBER:
             new_members += FMT_NEW_MEMBER.format(m=change.member, v=vocation, e=emoji)
         elif change.type == ChangeType.REMOVED:
@@ -320,35 +352,47 @@ def build_embeds(changes):
             name_changes += FMT_NAME_CHANGE.format(m=change.member, v=vocation, e=emoji, extra=change.extra)
         elif change.type == ChangeType.TITLE_CHANGE:
             title_changes += FMT_TITLE_CHANGE.format(m=change.member, v=vocation, e=emoji, extra=change.extra)
+        elif change.type == ChangeType.NEW_INVITE:
+            new_invites += FMT_INVITE_CHANGE.format(m=change.member)
+        elif change.type == ChangeType.INVITE_REMOVED:
+            removed_invites += FMT_INVITE_CHANGE.format(m=change.member)
 
     if new_members:
         messages = split_message(new_members)
         for message in messages:
-            embeds.append({"color": 361051, "title": "New member", "description": message})
+            embeds.append({"color": CLR_NEW_MEMBER, "title": "New member", "description": message})
     if removed:
         messages = split_message(removed)
         for message in messages:
-            embeds.append({"color": 16711680, "title": "Member left or kicked", "description": message})
+            embeds.append({"color": CLR_REMOVED_MEMBER, "title": "Member left or kicked", "description": message})
     if promoted:
         messages = split_message(promoted)
         for message in messages:
-            embeds.append({"color": 16776960, "title": "Member promoted", "description": message})
+            embeds.append({"color": CLR_PROMOTED, "title": "Member promoted", "description": message})
     if demoted:
         messages = split_message(demoted)
         for message in messages:
-            embeds.append({"color": 16753920, "title": "Member demoted", "description": message})
+            embeds.append({"color": CLR_DEMOTED, "title": "Member demoted", "description": message})
     if deleted:
         messages = split_message(deleted)
         for message in messages:
-            embeds.append({"color": 0, "title": "Members deleted", "description": message})
+            embeds.append({"color": CLR_DELETED, "title": "Members deleted", "description": message})
     if name_changes:
         messages = split_message(name_changes)
         for message in messages:
-            embeds.append({"color": 65535, "title": "Member changed name", "description": message})
+            embeds.append({"color": CLR_NAME_CHANGE, "title": "Member changed name", "description": message})
     if title_changes:
         messages = split_message(title_changes)
         for message in messages:
-            embeds.append({"color": 12915437, "title": "Title changed", "description": message})
+            embeds.append({"color": CLR_TITLE_CHANGE, "title": "Title changed", "description": message})
+    if removed_invites:
+        messages = split_message(removed_invites)
+        for message in messages:
+            embeds.append({"color": CLR_NEW_INVITE, "title": "Invites rejected or cancelled", "description": message})
+    if new_invites:
+        messages = split_message(new_invites)
+        for message in messages:
+            embeds.append({"color": CLR_NEW_INVITE, "title": "New invites", "description": message})
     return embeds
 
 

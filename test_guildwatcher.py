@@ -1,11 +1,12 @@
 import copy
 import datetime
+import json
 import unittest
 from datetime import date
 from unittest.mock import MagicMock
 
 import requests
-from tibiapy import Guild, GuildMember, Character
+from tibiapy import Guild, GuildMember, Character, GuildInvite
 
 import guildwatcher
 from guildwatcher import Change, ChangeType
@@ -24,6 +25,9 @@ class TestGuildWatcher(unittest.TestCase):
             GuildMember("John Doe", "Elite", level=34, vocation="Master Sorcerer", joined=today),
             GuildMember("Jane Doe", "Recruit", level=55, vocation="Sorcerer", joined=today),
             GuildMember("Fahgnoli", "Recruit", level=404, vocation="Master Sorcerer", joined=today)
+        ]
+        self.guild.invites = [
+            GuildInvite("Xzilla")
         ]
         self.guild_after = copy.deepcopy(self.guild)
 
@@ -106,6 +110,29 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].extra, old_name)
         guildwatcher.get_character.assert_called_with(old_name)
 
+    def testInviteAccepted(self):
+        joining_member = self.guild_after.invites.pop()
+        self.guild_after.members.append(GuildMember(joining_member.name, "Recruit", None, 400, "Master Sorcerer"))
+
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.NEW_MEMBER)
+        self.assertEqual(changes[0].member.name, joining_member.name)
+
+    def testInviteRemoved(self):
+        joining_member = self.guild_after.invites.pop()
+
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.INVITE_REMOVED)
+        self.assertEqual(changes[0].member.name, joining_member.name)
+
+    def testNewInvite(self):
+        new_invite = GuildInvite("Pecorino")
+        self.guild_after.invites.append(new_invite)
+
+        changes = guildwatcher.compare_guilds(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.NEW_INVITE)
+        self.assertEqual(changes[0].member.name, new_invite.name)
+
     def testDataIntegrity(self):
         guildwatcher.save_data(".tmp.data", self.guild)
         saved_guild = guildwatcher.load_data(".tmp.data")
@@ -126,9 +153,12 @@ class TestGuildWatcher(unittest.TestCase):
             Change(ChangeType.PROMOTED, GuildMember("Old", "Rank", level=142, vocation="Royal Paladin",
                                                     joined=date.today())),
             Change(ChangeType.DEMOTED, GuildMember("Jane", "Rank", level=89, vocation="Master Sorcerer",
-                                                   joined=date.today()))
+                                                   joined=date.today())),
+            Change(ChangeType.INVITE_REMOVED, GuildInvite("Unwanted", date=date.today())),
+            Change(ChangeType.NEW_INVITE, GuildInvite("Good Guy", date=date.today()))
         ]
         embeds = guildwatcher.build_embeds(changes)
+        print(json.dumps(embeds, indent=2))
         self.assertTrue(embeds)
         requests.post = MagicMock()
         guildwatcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", embeds)
