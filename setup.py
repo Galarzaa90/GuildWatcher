@@ -13,12 +13,13 @@ with open('README.md') as f:
 
 setup(
     name='guildwatcher',
-    version='0.1.1',
+    version='0.2.0',
     author='Allan Galarza',
     author_email="allan.galarza@gmail.com",
     description='A discord webhook to track Tibia guild changes.',
     long_description=readme,
     long_description_content_type="text/markdown",
+    license="MIT",
     url='https://github.com/Galarzaa90/GuildWatcher',
     py_modules=['guildwatcher'],
     install_requires=requirements,

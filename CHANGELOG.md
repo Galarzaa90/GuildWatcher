@@ -1,4 +1,9 @@
 # Changelog
+## Version 0.2.0 (2018-08-24)
+- GuildWatcher can now detect invites
+    - Announces when a new character is invited
+    - Announces when an invite is rejected or revoked.
+
 ## Version 0.1.1 (2018-08-12)
 - Fixed script entry point
 - Renamed script to `guildwatcher` for consistency
