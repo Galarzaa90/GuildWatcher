@@ -7,6 +7,7 @@ before_script:
 stages:
   - build
   - test
+  - deploy
 
 build:
   stage: build
@@ -17,7 +18,7 @@ build:
     paths:
       - dist/
 
-test:
+coverage:
   stage: test
   script:
       - pip install coverage
@@ -28,3 +29,16 @@ test:
     name: Coverage_Report
     paths:
       - htmlcov/
+
+pages:
+  stage: deploy
+  dependencies:
+    - coverage
+  script:
+    - mkdir public
+    - mv htmlcov/ public/coverage/
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
