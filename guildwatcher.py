@@ -188,7 +188,7 @@ def split_message(message):  # pragma: no cover
         return message_list
 
 
-def compare_guilds(before, after):
+def compare_guild(before, after):
     """
     Compares the same guild at different points in time, to obtain the changes made.
 
@@ -280,14 +280,14 @@ def get_vocation_emoji(vocation):
     :rtype: str
     """
     return {
-        "Druid": "\U00002744",
-        "Elder Druid": "\U00002744",
-        "Knight": "\U0001F6E1",
-        "Elite Knight": "\U0001F6E1",
-        "Sorcerer": "\U0001F525",
-        "Master Sorcerer": "\U0001F525",
-        "Paladin": "\U0001F3F9",
-        "Royal Paladin": "\U0001F3F9",
+        tibiapy.Vocation.DRUID: "\U00002744",
+        tibiapy.Vocation.ELDER_DRUID: "\U00002744",
+        tibiapy.Vocation.KNIGHT: "\U0001F6E1",
+        tibiapy.Vocation.ELITE_KNIGHT: "\U0001F6E1",
+        tibiapy.Vocation.SORCERER: "\U0001F525",
+        tibiapy.Vocation.MASTER_SORCERER: "\U0001F525",
+        tibiapy.Vocation.PALADIN: "\U0001F3F9",
+        tibiapy.Vocation.ROYAL_PALADIN: "\U0001F3F9",
     }.get(vocation, "")
 
 
@@ -478,7 +478,7 @@ def scan_guilds():
             # Only publish count if it changed
             if member_count == member_count_before:
                 member_count = 0
-            changes = compare_guilds(guild_data, new_guild_data)
+            changes = compare_guild(guild_data, new_guild_data)
             if cfg_guild["override_image"]:
                 cfg_guild["avatar_url"] = new_guild_data.logo_url
             embeds = build_embeds(changes)
