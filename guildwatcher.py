@@ -6,6 +6,7 @@ from enum import Enum
 
 import requests
 import tibiapy
+import yaml
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -15,15 +16,15 @@ consoleHandler.setLevel(logging.DEBUG)
 log.addHandler(consoleHandler)
 
 # Embed colors
-CLR_NEW_MEMBER = 361051  # 05825B
-CLR_REMOVED_MEMBER = 16711680  # FF0000
-CLR_PROMOTED = 16776960  # FFFF00
-CLR_DEMOTED = 16753920  # FFA500
-CLR_DELETED = 0  # 000000
-CLR_NAME_CHANGE = 65535  # 00FFFF
-CLR_TITLE_CHANGE = 12915437  # C512ED
-CLR_INVITE_REMOVED = 16738662  # FF6966
-CLR_NEW_INVITE = 8254857  # 7DF589
+CLR_NEW_MEMBER = 0x05825B
+CLR_REMOVED_MEMBER = 0xFF0000
+CLR_PROMOTED = 0xFFFF00
+CLR_DEMOTED = 0xFFA500
+CLR_DELETED = 0x000000
+CLR_NAME_CHANGE = 0x00FFFF
+CLR_TITLE_CHANGE = 0xC512ED
+CLR_INVITE_REMOVED = 0xFF6966
+CLR_NEW_INVITE = 0x7DF589
 
 # Change strings
 # m -> Member related to the change
@@ -67,20 +68,37 @@ class ChangeType(Enum):
     INVITE_REMOVED = 8  #: Invitation was removed or rejected.
     NEW_INVITE = 9  #: New invited
 
-cfg = {}
 
+class ConfigGuild:
+    def __init__(self, name, webhook_url):
+        self.name = name
+        self.webhook_url = webhook_url
+
+
+class Config:
+    def __init__(self, **kwargs):
+        guilds = kwargs.get("guilds", [])
+        self.webhook_url = kwargs.get("webhook_url")
+        self.guilds = []
+        for guild in guilds:
+            if isinstance(guild, str):
+                self.guilds.append(ConfigGuild(guild, self.webhook_url))
+            if isinstance(guild, dict):
+                self.guilds.append(ConfigGuild(guild["name"], guild["webhook_url"]))
 
 def load_config():
     """Loads and validates the configuration file."""
-    global cfg
     try:
-        with open('config.json') as json_data:
-            cfg = json.load(json_data)
+        with open('config.yml') as yml_file:
+            cgf_yml = yaml.safe_load(yml_file)
+            if cgf_yml is None:
+                cgf_yml = {}
+            return Config(**cgf_yml)
     except FileNotFoundError:
-        log.error("Missing config.json file. Check the example file.")
+        log.error("Missing config.yml file. Check the example file.")
         exit()
-    except ValueError:
-        log.error("Malformed config.json file.")
+    except (ValueError, KeyError) as e:
+        log.error("Malformed config.yml file.\nError: %s" % e)
         exit()
 
 
@@ -442,14 +460,14 @@ def publish_changes(url, embeds, name=None, avatar=None, new_count=0):
 
 
 def scan_guilds():
-    load_config()
+    cfg = load_config()
+    if not cfg.webhook_url:
+        log.error("Missing Webhook URL in config.yml")
+        exit()
     while True:
         # Iterate through each guild in the configuration file
-        for cfg_guild in cfg["guilds"]:
-            if cfg_guild.get("webhook_url", cfg.get("webhook_url")) is None:
-                log.error("Missing Webhook URL in config.json")
-                exit()
-            name = cfg_guild.get("name")
+        for cfg_guild in cfg.guilds:
+            name = cfg_guild.name
             if name is None:
                 log.error("Guild is missing name.")
                 time.sleep(5)
@@ -479,11 +497,8 @@ def scan_guilds():
             if member_count == member_count_before:
                 member_count = 0
             changes = compare_guild(guild_data, new_guild_data)
-            if cfg_guild["override_image"]:
-                cfg_guild["avatar_url"] = new_guild_data.logo_url
             embeds = build_embeds(changes)
-            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), embeds, guild_data.name,
-                            cfg_guild["avatar_url"], member_count)
+            publish_changes(cfg_guild.webhook_url, embeds, guild_data.name, new_guild_data.logo_url, member_count)
             log.info(name + " - Scanning done")
             time.sleep(2)
         time.sleep(5 * 60)

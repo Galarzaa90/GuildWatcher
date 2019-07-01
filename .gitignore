@@ -1,5 +1,6 @@
 # User files
 config.json
+config.yml
 *.data
 
 # IDEs
