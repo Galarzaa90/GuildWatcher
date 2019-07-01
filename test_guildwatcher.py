@@ -31,7 +31,7 @@ class TestGuildWatcher(unittest.TestCase):
         ]
         self.guild_after = copy.deepcopy(self.guild)
 
-    def testPromotedMember(self):
+    def test_promoted_member(self):
         new_rank = "Elite"
         promoted_member = self.guild_after.members[6]
         promoted_member.rank = new_rank
@@ -41,7 +41,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.name, promoted_member.name)
         self.assertEqual(changes[0].member.rank, promoted_member.rank)
 
-    def testDemotedMember(self):
+    def test_demoted_member(self):
         new_rank = "Recruit"
         demoted_member = self.guild_after.members[5]
         demoted_member.rank = new_rank
@@ -51,7 +51,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.name, demoted_member.name)
         self.assertEqual(changes[0].member.rank, demoted_member.rank)
 
-    def testNewMember(self):
+    def test_new_member(self):
         new_member = GuildMember("Noob", "Recruit", level=12, vocation="Knight")
         self.guild_after.members.append(new_member)
 
@@ -59,7 +59,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].type, guildwatcher.ChangeType.NEW_MEMBER)
         self.assertEqual(changes[0].member.name, new_member.name)
 
-    def testTitleChange(self):
+    def test_title_change(self):
         new_title = "Even Nabber"
         affected_member = self.guild_after.members[1]
         old_title = affected_member.title
@@ -70,7 +70,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.title, new_title)
         self.assertEqual(changes[0].extra, old_title)
 
-    def testMemberDeleted(self):
+    def test_member_deleted(self):
         # Kick member at position 6
         kicked = self.guild_after.members.pop(6)
 
@@ -82,7 +82,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.name, kicked.name)
         guildwatcher.get_character.assert_called_with(kicked.name)
 
-    def testMemberKicked(self):
+    def test_member_kicked(self):
         # Kick member at position 1
         kicked = self.guild_after.members.pop(1)
 
@@ -94,7 +94,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.name, kicked.name)
         guildwatcher.get_character.assert_called_with(kicked.name)
 
-    def testMemberNameChanged(self):
+    def test_member_name_changed(self):
         # Change name of first member
         new_name = "Galarzaa Fidera"
         affected_member = self.guild_after.members[0]
@@ -110,7 +110,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].extra, old_name)
         guildwatcher.get_character.assert_called_with(old_name)
 
-    def testInviteAccepted(self):
+    def test_invite_accepted(self):
         joining_member = self.guild_after.invites.pop()
         self.guild_after.members.append(GuildMember(joining_member.name, "Recruit", None, 400, Vocation.MASTER_SORCERER))
 
@@ -118,14 +118,14 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].type, guildwatcher.ChangeType.NEW_MEMBER)
         self.assertEqual(changes[0].member.name, joining_member.name)
 
-    def testInviteRemoved(self):
+    def test_invite_removed(self):
         joining_member = self.guild_after.invites.pop()
 
         changes = guildwatcher.compare_guild(self.guild, self.guild_after)
         self.assertEqual(changes[0].type, guildwatcher.ChangeType.INVITE_REMOVED)
         self.assertEqual(changes[0].member.name, joining_member.name)
 
-    def testNewInvite(self):
+    def test_new_invite(self):
         new_invite = GuildInvite("Pecorino")
         self.guild_after.invites.append(new_invite)
 
@@ -133,7 +133,7 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].type, guildwatcher.ChangeType.NEW_INVITE)
         self.assertEqual(changes[0].member.name, new_invite.name)
 
-    def testDataIntegrity(self):
+    def test_data_integrity(self):
         guildwatcher.save_data(".tmp.data", self.guild)
         saved_guild = guildwatcher.load_data(".tmp.data")
 
@@ -141,7 +141,7 @@ class TestGuildWatcher(unittest.TestCase):
 
         self.assertFalse(changes)
 
-    def testEmbeds(self):
+    def test_embeds(self):
         changes = [
             Change(ChangeType.NEW_MEMBER, GuildMember("Noob", "Recruit", level=19, vocation=Vocation.DRUID)),
             Change(ChangeType.REMOVED, GuildMember("John", "Member", level=56, vocation=Vocation.DRUID, joined=date.today())),
