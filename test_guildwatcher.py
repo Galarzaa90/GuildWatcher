@@ -1,6 +1,5 @@
 import copy
 import datetime
-import json
 import unittest
 from datetime import date
 from unittest.mock import MagicMock
@@ -158,7 +157,6 @@ class TestGuildWatcher(unittest.TestCase):
             Change(ChangeType.NEW_INVITE, GuildInvite("Good Guy", date=date.today()))
         ]
         embeds = guildwatcher.build_embeds(changes)
-        print(json.dumps(embeds, indent=2))
         self.assertTrue(embeds)
         requests.post = MagicMock()
         guildwatcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", embeds)
