@@ -2,7 +2,7 @@ import copy
 import datetime
 import unittest
 from datetime import date
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch, mock_open
 
 import requests
 from tibiapy import Guild, GuildMember, Character, GuildInvite, Vocation
@@ -29,6 +29,11 @@ class TestGuildWatcher(unittest.TestCase):
             GuildInvite("Xzilla")
         ]
         self.guild_after = copy.deepcopy(self.guild)
+
+    @patch('builtins.open', new_callable=mock_open, read_data='')
+    def test_config_empty(self, m):
+        cfg = guildwatcher.load_config()
+        print(cfg)
 
     def test_promoted_member(self):
         new_rank = "Elite"

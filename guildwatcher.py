@@ -91,13 +91,11 @@ def load_config():
     try:
         with open('config.yml') as yml_file:
             cgf_yml = yaml.safe_load(yml_file)
-            if cgf_yml is None:
-                cgf_yml = {}
             return Config(**cgf_yml)
     except FileNotFoundError:
         log.error("Missing config.yml file. Check the example file.")
         exit()
-    except (ValueError, KeyError) as e:
+    except (ValueError, KeyError, TypeError) as e:
         log.error("Malformed config.yml file.\nError: %s" % e)
         exit()
 
