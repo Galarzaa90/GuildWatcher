@@ -1,5 +1,6 @@
 import copy
 import datetime
+import logging
 import unittest
 from datetime import date
 from unittest.mock import MagicMock, patch, mock_open
@@ -10,6 +11,7 @@ from tibiapy import Guild, GuildMember, Character, GuildInvite, Vocation
 import guildwatcher
 from guildwatcher import Change, ChangeType
 
+logger = logging.getLogger(guildwatcher.__name__)
 
 class TestGuildWatcher(unittest.TestCase):
     def setUp(self):
@@ -30,10 +32,63 @@ class TestGuildWatcher(unittest.TestCase):
         ]
         self.guild_after = copy.deepcopy(self.guild)
 
+    @patch('logging.Logger.error')
     @patch('builtins.open', new_callable=mock_open, read_data='')
-    def test_config_empty(self, m):
-        cfg = guildwatcher.load_config()
-        print(cfg)
+    def test_config_empty(self, m_open, log_error):
+        """Attempt loading an empty config file"""
+        with self.assertRaises(SystemExit):
+            guildwatcher.load_config()
+            log_error.assert_called_once()
+
+    @patch('logging.Logger.error')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_config_no_file(self, m_open, log_error):
+        """Attempt loading a file that doesn't exist."""
+        m_open.side_effect = FileNotFoundError()
+        with self.assertRaises(SystemExit):
+            guildwatcher.load_config()
+
+    def test_config_simple_file(self):
+        """Testing a config file with simple guild syntax."""
+        webhook_url = "http://discord.webhook.url.goes.here"
+        content = """
+        webhook_url: %s
+        
+        guilds:
+        - Redd Alliance
+        """ % webhook_url
+        with patch('builtins.open', new_callable=mock_open, read_data=content):
+            cfg = guildwatcher.load_config()
+
+        self.assertIsInstance(cfg, guildwatcher.Config)
+        self.assertEqual(webhook_url, cfg.webhook_url)
+        self.assertEqual(1, len(cfg.guilds))
+        self.assertEqual("Redd Alliance", cfg.guilds[0].name)
+        self.assertEqual(webhook_url, cfg.guilds[0].webhook_url)
+
+    def test_config_advanced_file(self):
+        """Testing a config file with advanced guild syntax."""
+        webhook_url = "http://discord.webhook.url.goes.here"
+        second_webhook = "http://another.webhook.url"
+        content = """
+        webhook_url: %s
+
+        guilds:
+        - Redd Alliance
+        - name: Bald Dwarfs
+          webhook_url: %s
+        """ % (webhook_url, second_webhook)
+        with patch('builtins.open', new_callable=mock_open, read_data=content):
+            cfg = guildwatcher.load_config()
+
+        self.assertIsInstance(cfg, guildwatcher.Config)
+        self.assertEqual(webhook_url, cfg.webhook_url)
+        self.assertEqual(2, len(cfg.guilds))
+        self.assertEqual("Redd Alliance", cfg.guilds[0].name)
+        self.assertEqual(webhook_url, cfg.guilds[0].webhook_url)
+
+        self.assertEqual("Bald Dwarfs", cfg.guilds[1].name)
+        self.assertEqual(second_webhook, cfg.guilds[1].webhook_url)
 
     def test_promoted_member(self):
         new_rank = "Elite"

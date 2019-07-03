@@ -74,6 +74,9 @@ class ConfigGuild:
         self.name = name
         self.webhook_url = webhook_url
 
+    def __repr__(self):
+        return "<%s name=%r webhook_url=%r>" % (self.__class__.__name__, self.name, self.webhook_url)
+
 
 class Config:
     def __init__(self, **kwargs):
@@ -86,6 +89,9 @@ class Config:
             if isinstance(guild, dict):
                 self.guilds.append(ConfigGuild(guild["name"], guild["webhook_url"]))
 
+    def __repr__(self):
+        return "<%s webhook_url=%r guilds=%r>" % (self.__class__.__name__, self.webhook_url, self.guilds)
+
 def load_config():
     """Loads and validates the configuration file."""
     try:
@@ -94,10 +100,9 @@ def load_config():
             return Config(**cgf_yml)
     except FileNotFoundError:
         log.error("Missing config.yml file. Check the example file.")
-        exit()
     except (ValueError, KeyError, TypeError) as e:
         log.error("Malformed config.yml file.\nError: %s" % e)
-        exit()
+    exit()
 
 
 def save_data(file, data):
