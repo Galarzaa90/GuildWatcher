@@ -6,7 +6,7 @@ from datetime import date
 from unittest.mock import MagicMock, patch, mock_open
 
 import requests
-from tibiapy import Guild, GuildMember, Character, GuildInvite, Vocation
+from tibiapy import Guild, GuildMember, Character, GuildInvite, Vocation, GuildHouse
 
 import guildwatcher
 from guildwatcher import Change, ChangeType
@@ -16,6 +16,7 @@ logger = logging.getLogger(guildwatcher.__name__)
 class TestGuildWatcher(unittest.TestCase):
     def setUp(self):
         self.guild = Guild("Test Guild", "Antica")
+        self.guild.guildhall = GuildHouse("Crystal Glance", self.guild.world)
         today = datetime.date.today()
         self.guild.members = [
             GuildMember("Galarzaa", "Leader", level=285, vocation=Vocation.ROYAL_PALADIN, joined=today),
@@ -89,6 +90,18 @@ class TestGuildWatcher(unittest.TestCase):
 
         self.assertEqual("Bald Dwarfs", cfg.guilds[1].name)
         self.assertEqual(second_webhook, cfg.guilds[1].webhook_url)
+
+    def test_new_guildhall(self):
+        self.guild.guildhall = None
+        changes = guildwatcher.compare_guild(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.GUILDHALL_CHANGED)
+        self.assertEqual(changes[0].extra, self.guild_after.guildhall.name)
+
+    def test_lost_guildhall(self):
+        self.guild_after.guildhall = None
+        changes = guildwatcher.compare_guild(self.guild, self.guild_after)
+        self.assertEqual(changes[0].type, guildwatcher.ChangeType.GUILDHALL_REMOVED)
+        self.assertEqual(changes[0].extra, self.guild.guildhall.name)
 
     def test_promoted_member(self):
         new_rank = "Elite"
@@ -214,9 +227,13 @@ class TestGuildWatcher(unittest.TestCase):
             Change(ChangeType.DEMOTED, GuildMember("Jane", "Rank", level=89, vocation=Vocation.MASTER_SORCERER,
                                                    joined=date.today())),
             Change(ChangeType.INVITE_REMOVED, GuildInvite("Unwanted", date=date.today())),
-            Change(ChangeType.NEW_INVITE, GuildInvite("Good Guy", date=date.today()))
+            Change(ChangeType.NEW_INVITE, GuildInvite("Good Guy", date=date.today())),
+            Change(ChangeType.GUILDHALL_REMOVED, None, "Crystal Glance"),
+            Change(ChangeType.GUILDHALL_CHANGED, None, "The Tibianic"),
         ]
         embeds = guildwatcher.build_embeds(changes)
+        import pprint
+        pprint.pprint(embeds)
         self.assertTrue(embeds)
         requests.post = MagicMock()
         guildwatcher.publish_changes("https://canary.discordapp.com/api/webhooks/webhook", embeds)

@@ -16,15 +16,17 @@ consoleHandler.setLevel(logging.DEBUG)
 log.addHandler(consoleHandler)
 
 # Embed colors
-CLR_NEW_MEMBER = 0x05825B
-CLR_REMOVED_MEMBER = 0xFF0000
-CLR_PROMOTED = 0xFFFF00
-CLR_DEMOTED = 0xFFA500
-CLR_DELETED = 0x000000
-CLR_NAME_CHANGE = 0x00FFFF
-CLR_TITLE_CHANGE = 0xC512ED
-CLR_INVITE_REMOVED = 0xFF6966
-CLR_NEW_INVITE = 0x7DF589
+CLR_NEW_MEMBER = 0x05825B  # Dark green
+CLR_REMOVED_MEMBER = 0xFF0000  # Red
+CLR_PROMOTED = 0xFFFF00  # Yellow
+CLR_DEMOTED = 0xFFA500  # Orange
+CLR_DELETED = 0x000000  # Black
+CLR_NAME_CHANGE = 0x00FFFF  # Cyan
+CLR_TITLE_CHANGE = 0xC512ED  # Magenta
+CLR_INVITE_REMOVED = 0xFF6966  # Light red
+CLR_NEW_INVITE = 0x7DF589  # Lime green
+CLR_GUILDHALL_REMOVE = 0xA9A9A9  # Grey
+CLR_GUILDHALL_CHANGED = 0xFFFFFF  # White
 
 # Change strings
 # m -> Member related to the change
@@ -36,7 +38,8 @@ FMT_NEW_MEMBER = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_NAME_CHANGE = "{extra} → [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** **{v}** {e}\n"
 FMT_INVITE_CHANGE = "[{m.name}]({m.url}) - Invited: **{m.date}**\n"
-
+FMT_GUILDHALL_CHANGED = "Guild moved to guildhall **{extra}**"
+FMT_GUILDHALL_REMOVE = "Guild no longer owns guildhall **{extra}**"
 
 class Change:
     """
@@ -69,6 +72,8 @@ class ChangeType(Enum):
     PROMOTED = 7  #: Member was promoted.
     INVITE_REMOVED = 8  #: Invitation was removed or rejected.
     NEW_INVITE = 9  #: New invited
+    GUILDHALL_CHANGED = 10  #: Guild moved to a new guildhall.
+    GUILDHALL_REMOVED = 11  #: Guild no longer has a guildhall.
 
 
 class ConfigGuild:
@@ -229,6 +234,14 @@ def compare_guild(before, after):
     removed_members = [m for m in before.members if m not in after.members]
     joined = [m for m in after.members if m not in before.members]
 
+    if before.guildhall != after.guildhall:
+        if before.guildhall is None:
+            changes.append(Change(ChangeType.GUILDHALL_CHANGED, None, after.guildhall.name))
+            log.info("New guildhall: %s" % after.guildhall.name)
+        elif after.guildhall is None:
+            log.info("Guildhall removed: %s" % before.guildhall.name)
+            changes.append(Change(ChangeType.GUILDHALL_REMOVED, None, before.guildhall.name))
+
     compare_members(after, before, changes)
     check_removed_members(changes, joined, removed_members)
 
@@ -296,6 +309,7 @@ def check_removed_members(changes, joined, removed_members):
 
 
 def compare_guild_invites(after, before, changes, joined):
+    """Compares invites, to see if they were accepted or rejected."""
     new_invites = [i for i in after.invites if i not in before.invites]
     removed_invites = [i for i in before.invites if i not in after.invites]
     # Check if invitation got removed or member joined
@@ -398,6 +412,12 @@ def build_embeds(changes):
             new_invites += FMT_INVITE_CHANGE.format(m=change.member)
         elif change.type == ChangeType.INVITE_REMOVED:
             removed_invites += FMT_INVITE_CHANGE.format(m=change.member)
+        elif change.type == ChangeType.GUILDHALL_REMOVED:
+            embeds.append({"color": CLR_GUILDHALL_REMOVE, "title": "Guildhall removed",
+                           "description": FMT_GUILDHALL_REMOVE.format(extra=change.extra)})
+        elif change.type == ChangeType.GUILDHALL_CHANGED:
+            embeds.append({"color": CLR_GUILDHALL_CHANGED, "title": "Guildhall changed",
+                           "description": FMT_GUILDHALL_CHANGED.format(extra=change.extra)})
 
     if new_members:
         messages = split_message(new_members)
