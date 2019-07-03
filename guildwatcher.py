@@ -320,15 +320,15 @@ def get_vocation_abbreviation(vocation):
     :return: The emoji that represents the vocation.
     :rtype: str"""
     return {
-        "Druid": "D",
-        "Elder Druid": "ED",
-        "Knight": "K",
-        "Elite Knight": "EK",
-        "Sorcerer": "S",
-        "Master Sorcerer": "MS",
-        "Paladin": "P",
-        "Royal Paladin": "RP",
-        "None": "N",
+        tibiapy.Vocation.DRUID: "D",
+        tibiapy.Vocation.ELDER_DRUID: "ED",
+        tibiapy.Vocation.KNIGHT: "K",
+        tibiapy.Vocation.ELITE_KNIGHT: "EK",
+        tibiapy.Vocation.SORCERER: "S",
+        tibiapy.Vocation.MASTER_SORCERER: "MS",
+        tibiapy.Vocation.PALADIN: "P",
+        tibiapy.Vocation.ROYAL_PALADIN: "RP",
+        tibiapy.Vocation.NONE: "N",
     }.get(vocation, "")
 
 
