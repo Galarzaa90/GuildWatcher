@@ -46,14 +46,16 @@ class Change:
     :ivar type: The change type.
     :ivar extra: Extra information related to the change.
     :type member: abc.Character
-    :type type: str
+    :type type: ChangeType
     :type extra: Optional[Any]
     """
-
     def __init__(self, _type, member, extra=None):
         self.member = member
         self.type = _type
         self.extra = extra
+
+    def __repr__(self):
+        return "<%s type=%s member=%r>" % (self.__class__.__name__, self.type.name, self.member)
 
 
 class ChangeType(Enum):
@@ -223,10 +225,27 @@ def compare_guild(before, after):
     :rtype: list of Change
     """
     changes = []
-    ranks = after.ranks[:]
     # Members no longer in guild. Some may have changed name.
     removed_members = [m for m in before.members if m not in after.members]
     joined = [m for m in after.members if m not in before.members]
+
+    compare_members(after, before, changes)
+    check_removed_members(changes, joined, removed_members)
+
+    changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
+    if len(joined) > 0:
+        log.info("New members found: " + ",".join(m.name for m in joined))
+
+    compare_guild_invites(after, before, changes, joined)
+    return changes
+
+
+def compare_members(after, before, changes):
+    """Compares the members still in the guild to see what changed.
+
+    It compares the member's current state, with the previous member's state."""
+    # ranks is property, so we save a copy to avoid recalculating it every time.
+    ranks = after.ranks[:]
     for member in before.members:
         for member_after in after.members:
             if member != member_after:
@@ -249,6 +268,10 @@ def compare_guild(before, after):
                 log.info("Member title changed from '%s' to '%s'" % (member.title, member_after.title))
                 changes.append(Change(ChangeType.TITLE_CHANGE, member_after, member.title))
             break
+
+
+def check_removed_members(changes, joined, removed_members):
+    """Checks every removed member to see if they left, changed name or were deleted."""
     for member in removed_members:
         # We check if it was a namechange or character deleted
         log.info("Checking character {0.name}".format(member))
@@ -270,10 +293,9 @@ def compare_guild(before, after):
         if not found:
             log.info("Member no longer in guild: " + member.name)
             changes.append(Change(ChangeType.REMOVED, member))
-    changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
-    if len(joined) > 0:
-        log.info("New members found: " + ",".join(m.name for m in joined))
 
+
+def compare_guild_invites(after, before, changes, joined):
     new_invites = [i for i in after.invites if i not in before.invites]
     removed_invites = [i for i in before.invites if i not in after.invites]
     # Check if invitation got removed or member joined
@@ -289,7 +311,6 @@ def compare_guild(before, after):
     changes += [Change(ChangeType.NEW_INVITE, i) for i in new_invites]
     if len(new_invites) > 0:
         log.info("New invites found: " + ",".join(m.name for m in new_invites))
-    return changes
 
 
 def get_vocation_emoji(vocation):
