@@ -331,7 +331,7 @@ def get_vocation_emoji(vocation):
     """Returns an emoji to represent a character's vocation.
 
     :param vocation: The vocation's name.
-    :type vocation: str
+    :type vocation: tibiapy.Vocation
     :return: The emoji that represents the vocation.
     :rtype: str
     """
@@ -351,7 +351,7 @@ def get_vocation_abbreviation(vocation):
     """Gets an abbreviated string of the vocation.
 
     :param vocation: The vocation's name
-    :type vocation: str
+    :type vocation: tibiapy.Vocation
     :return: The emoji that represents the vocation.
     :rtype: str"""
     return {
