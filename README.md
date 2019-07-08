@@ -52,22 +52,23 @@ python -m guildwatcher
 ```
 
 ## Current Features
-* Announces when a member joins.
-* Announces when a member leaves or is kicked.
-* Announce when a member is promoted or demoted.
-* Announce when a member changes name.
-* Announce when a member's title is changed.
-* Announce when a new character is invited.
-* Announce when an invitation is revoked or rejected.
-* Announce when the guildhall changes.
-* Multiple guilds support.
-* Webhook URL configurable per guild.
+- Announces when a member joins.
+- Announces when a member leaves or is kicked.
+- Announce when a member is promoted or demoted.
+- Announce when a member changes name.
+- Announce when a member's title is changed.
+- Announce when a new character is invited.
+- Announce when an invitation is revoked or rejected.
+- Announce when the guildhall changes.
+- Multiple guilds support.
+- Configurable scan times.
+- Webhook URL configurable per guild.
 
 ## Known Issues
-* Renaming a rank would trigger all rank members getting announced as leaving and joining back.
+- Renaming a rank would trigger all rank members getting announced as leaving and joining back.
 
 ## Planned features
-- Configurable scan times.
+
 - Announce changes in guild attributes.
     - Application status
     - Disband warning

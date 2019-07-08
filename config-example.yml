@@ -2,6 +2,9 @@
 
 webhook_url: http://discord.webhook.url.goes.here
 
+# Time in seconds to wait between checks.
+interval: 300
+
 # Remember to write the title with the correct casing.
 guilds:
   - Redd Alliance
