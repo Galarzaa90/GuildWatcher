@@ -1,0 +1,15 @@
+# To use this file, rename it to config.yml
+
+webhook_url: http://discord.webhook.url.goes.here
+
+# Time in seconds to wait between checks.
+interval: 300
+
+# Remember to write the title with the correct casing.
+guilds:
+  - Redd Alliance
+  - Bald Dwarfs
+  # If you want to override the channel, you must use this format for that entry
+  # The changes of this guild will be posted on a different channel.
+  - name: Academy
+    webhook_url: http://another.webhook.url.goes.here

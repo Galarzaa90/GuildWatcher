@@ -1,3 +1,25 @@
+"""
+The MIT License (MIT)
+Copyright (c) 2019 Allan Galarza
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
 import json
 import logging
 import pickle
@@ -6,6 +28,7 @@ from enum import Enum
 
 import requests
 import tibiapy
+import yaml
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -15,15 +38,17 @@ consoleHandler.setLevel(logging.DEBUG)
 log.addHandler(consoleHandler)
 
 # Embed colors
-CLR_NEW_MEMBER = 361051  # 05825B
-CLR_REMOVED_MEMBER = 16711680  # FF0000
-CLR_PROMOTED = 16776960  # FFFF00
-CLR_DEMOTED = 16753920  # FFA500
-CLR_DELETED = 0  # 000000
-CLR_NAME_CHANGE = 65535  # 00FFFF
-CLR_TITLE_CHANGE = 12915437  # C512ED
-CLR_INVITE_REMOVED = 16738662  # FF6966
-CLR_NEW_INVITE = 8254857  # 7DF589
+CLR_NEW_MEMBER = 0x05825B  # Dark green
+CLR_REMOVED_MEMBER = 0xFF0000  # Red
+CLR_PROMOTED = 0xFFFF00  # Yellow
+CLR_DEMOTED = 0xFFA500  # Orange
+CLR_DELETED = 0x000000  # Black
+CLR_NAME_CHANGE = 0x00FFFF  # Cyan
+CLR_TITLE_CHANGE = 0xC512ED  # Magenta
+CLR_INVITE_REMOVED = 0xFF6966  # Light red
+CLR_NEW_INVITE = 0x7DF589  # Lime green
+CLR_GUILDHALL_REMOVE = 0xA9A9A9  # Grey
+CLR_GUILDHALL_CHANGED = 0xFFFFFF  # White
 
 # Change strings
 # m -> Member related to the change
@@ -35,6 +60,8 @@ FMT_NEW_MEMBER = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_NAME_CHANGE = "{extra} → [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** **{v}** {e}\n"
 FMT_INVITE_CHANGE = "[{m.name}]({m.url}) - Invited: **{m.date}**\n"
+FMT_GUILDHALL_CHANGED = "Guild moved to guildhall **{extra}**"
+FMT_GUILDHALL_REMOVE = "Guild no longer owns guildhall **{extra}**"
 
 
 class Change:
@@ -45,14 +72,16 @@ class Change:
     :ivar type: The change type.
     :ivar extra: Extra information related to the change.
     :type member: abc.Character
-    :type type: str
+    :type type: ChangeType
     :type extra: Optional[Any]
     """
-
     def __init__(self, _type, member, extra=None):
         self.member = member
         self.type = _type
         self.extra = extra
+
+    def __repr__(self):
+        return "<%s type=%s member=%r>" % (self.__class__.__name__, self.type.name, self.member)
 
 
 class ChangeType(Enum):
@@ -66,22 +95,45 @@ class ChangeType(Enum):
     PROMOTED = 7  #: Member was promoted.
     INVITE_REMOVED = 8  #: Invitation was removed or rejected.
     NEW_INVITE = 9  #: New invited
+    GUILDHALL_CHANGED = 10  #: Guild moved to a new guildhall.
+    GUILDHALL_REMOVED = 11  #: Guild no longer has a guildhall.
 
-cfg = {}
 
+class ConfigGuild:
+    def __init__(self, name, webhook_url):
+        self.name = name
+        self.webhook_url = webhook_url
+
+    def __repr__(self):
+        return "<%s name=%r webhook_url=%r>" % (self.__class__.__name__, self.name, self.webhook_url)
+
+
+class Config:
+    def __init__(self, **kwargs):
+        guilds = kwargs.get("guilds", [])
+        self.webhook_url = kwargs.get("webhook_url")
+        self.interval = int(kwargs.get("interval", 300))
+        self.guilds = []
+        for guild in guilds:
+            if isinstance(guild, str):
+                self.guilds.append(ConfigGuild(guild, self.webhook_url))
+            if isinstance(guild, dict):
+                self.guilds.append(ConfigGuild(guild["name"], guild["webhook_url"]))
+
+    def __repr__(self):
+        return "<%s webhook_url=%r guilds=%r>" % (self.__class__.__name__, self.webhook_url, self.guilds)
 
 def load_config():
     """Loads and validates the configuration file."""
-    global cfg
     try:
-        with open('config.json') as json_data:
-            cfg = json.load(json_data)
+        with open('config.yml') as yml_file:
+            cgf_yml = yaml.safe_load(yml_file)
+            return Config(**cgf_yml)
     except FileNotFoundError:
-        log.error("Missing config.json file. Check the example file.")
-        exit()
-    except ValueError:
-        log.error("Malformed config.json file.")
-        exit()
+        log.error("Missing config.yml file. Check the example file.")
+    except (ValueError, KeyError, TypeError) as e:
+        log.error("Malformed config.yml file.\nError: %s" % e)
+    exit()
 
 
 def save_data(file, data):
@@ -188,7 +240,7 @@ def split_message(message):  # pragma: no cover
         return message_list
 
 
-def compare_guilds(before, after):
+def compare_guild(before, after):
     """
     Compares the same guild at different points in time, to obtain the changes made.
 
@@ -202,10 +254,35 @@ def compare_guilds(before, after):
     :rtype: list of Change
     """
     changes = []
-    ranks = after.ranks[:]
     # Members no longer in guild. Some may have changed name.
     removed_members = [m for m in before.members if m not in after.members]
     joined = [m for m in after.members if m not in before.members]
+
+    if before.guildhall != after.guildhall:
+        if before.guildhall is None:
+            changes.append(Change(ChangeType.GUILDHALL_CHANGED, None, after.guildhall.name))
+            log.info("New guildhall: %s" % after.guildhall.name)
+        elif after.guildhall is None:
+            log.info("Guildhall removed: %s" % before.guildhall.name)
+            changes.append(Change(ChangeType.GUILDHALL_REMOVED, None, before.guildhall.name))
+
+    compare_members(after, before, changes)
+    check_removed_members(changes, joined, removed_members)
+
+    changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
+    if len(joined) > 0:
+        log.info("New members found: " + ",".join(m.name for m in joined))
+
+    compare_guild_invites(after, before, changes, joined)
+    return changes
+
+
+def compare_members(after, before, changes):
+    """Compares the members still in the guild to see what changed.
+
+    It compares the member's current state, with the previous member's state."""
+    # ranks is property, so we save a copy to avoid recalculating it every time.
+    ranks = after.ranks[:]
     for member in before.members:
         for member_after in after.members:
             if member != member_after:
@@ -228,6 +305,10 @@ def compare_guilds(before, after):
                 log.info("Member title changed from '%s' to '%s'" % (member.title, member_after.title))
                 changes.append(Change(ChangeType.TITLE_CHANGE, member_after, member.title))
             break
+
+
+def check_removed_members(changes, joined, removed_members):
+    """Checks every removed member to see if they left, changed name or were deleted."""
     for member in removed_members:
         # We check if it was a namechange or character deleted
         log.info("Checking character {0.name}".format(member))
@@ -249,10 +330,10 @@ def compare_guilds(before, after):
         if not found:
             log.info("Member no longer in guild: " + member.name)
             changes.append(Change(ChangeType.REMOVED, member))
-    changes += [Change(ChangeType.NEW_MEMBER, m) for m in joined]
-    if len(joined) > 0:
-        log.info("New members found: " + ",".join(m.name for m in joined))
 
+
+def compare_guild_invites(after, before, changes, joined):
+    """Compares invites, to see if they were accepted or rejected."""
     new_invites = [i for i in after.invites if i not in before.invites]
     removed_invites = [i for i in before.invites if i not in after.invites]
     # Check if invitation got removed or member joined
@@ -268,26 +349,25 @@ def compare_guilds(before, after):
     changes += [Change(ChangeType.NEW_INVITE, i) for i in new_invites]
     if len(new_invites) > 0:
         log.info("New invites found: " + ",".join(m.name for m in new_invites))
-    return changes
 
 
 def get_vocation_emoji(vocation):
     """Returns an emoji to represent a character's vocation.
 
     :param vocation: The vocation's name.
-    :type vocation: str
+    :type vocation: tibiapy.Vocation
     :return: The emoji that represents the vocation.
     :rtype: str
     """
     return {
-        "Druid": "\U00002744",
-        "Elder Druid": "\U00002744",
-        "Knight": "\U0001F6E1",
-        "Elite Knight": "\U0001F6E1",
-        "Sorcerer": "\U0001F525",
-        "Master Sorcerer": "\U0001F525",
-        "Paladin": "\U0001F3F9",
-        "Royal Paladin": "\U0001F3F9",
+        tibiapy.Vocation.DRUID: "\U00002744",
+        tibiapy.Vocation.ELDER_DRUID: "\U00002744",
+        tibiapy.Vocation.KNIGHT: "\U0001F6E1",
+        tibiapy.Vocation.ELITE_KNIGHT: "\U0001F6E1",
+        tibiapy.Vocation.SORCERER: "\U0001F525",
+        tibiapy.Vocation.MASTER_SORCERER: "\U0001F525",
+        tibiapy.Vocation.PALADIN: "\U0001F3F9",
+        tibiapy.Vocation.ROYAL_PALADIN: "\U0001F3F9",
     }.get(vocation, "")
 
 
@@ -295,19 +375,19 @@ def get_vocation_abbreviation(vocation):
     """Gets an abbreviated string of the vocation.
 
     :param vocation: The vocation's name
-    :type vocation: str
+    :type vocation: tibiapy.Vocation
     :return: The emoji that represents the vocation.
     :rtype: str"""
     return {
-        "Druid": "D",
-        "Elder Druid": "ED",
-        "Knight": "K",
-        "Elite Knight": "EK",
-        "Sorcerer": "S",
-        "Master Sorcerer": "MS",
-        "Paladin": "P",
-        "Royal Paladin": "RP",
-        "None": "N",
+        tibiapy.Vocation.DRUID: "D",
+        tibiapy.Vocation.ELDER_DRUID: "ED",
+        tibiapy.Vocation.KNIGHT: "K",
+        tibiapy.Vocation.ELITE_KNIGHT: "EK",
+        tibiapy.Vocation.SORCERER: "S",
+        tibiapy.Vocation.MASTER_SORCERER: "MS",
+        tibiapy.Vocation.PALADIN: "P",
+        tibiapy.Vocation.ROYAL_PALADIN: "RP",
+        tibiapy.Vocation.NONE: "N",
     }.get(vocation, "")
 
 
@@ -356,6 +436,12 @@ def build_embeds(changes):
             new_invites += FMT_INVITE_CHANGE.format(m=change.member)
         elif change.type == ChangeType.INVITE_REMOVED:
             removed_invites += FMT_INVITE_CHANGE.format(m=change.member)
+        elif change.type == ChangeType.GUILDHALL_REMOVED:
+            embeds.append({"color": CLR_GUILDHALL_REMOVE, "title": "Guildhall removed",
+                           "description": FMT_GUILDHALL_REMOVE.format(extra=change.extra)})
+        elif change.type == ChangeType.GUILDHALL_CHANGED:
+            embeds.append({"color": CLR_GUILDHALL_CHANGED, "title": "Guildhall changed",
+                           "description": FMT_GUILDHALL_CHANGED.format(extra=change.extra)})
 
     if new_members:
         messages = split_message(new_members)
@@ -442,14 +528,14 @@ def publish_changes(url, embeds, name=None, avatar=None, new_count=0):
 
 
 def scan_guilds():
-    load_config()
+    cfg = load_config()
+    if not cfg.webhook_url:
+        log.error("Missing Webhook URL in config.yml")
+        exit()
     while True:
         # Iterate through each guild in the configuration file
-        for cfg_guild in cfg["guilds"]:
-            if cfg_guild.get("webhook_url", cfg.get("webhook_url")) is None:
-                log.error("Missing Webhook URL in config.json")
-                exit()
-            name = cfg_guild.get("name")
+        for cfg_guild in cfg.guilds:
+            name = cfg_guild.name
             if name is None:
                 log.error("Guild is missing name.")
                 time.sleep(5)
@@ -478,15 +564,12 @@ def scan_guilds():
             # Only publish count if it changed
             if member_count == member_count_before:
                 member_count = 0
-            changes = compare_guilds(guild_data, new_guild_data)
-            if cfg_guild["override_image"]:
-                cfg_guild["avatar_url"] = new_guild_data.logo_url
+            changes = compare_guild(guild_data, new_guild_data)
             embeds = build_embeds(changes)
-            publish_changes(cfg_guild.get("webhook_url", cfg.get("webhook_url")), embeds, guild_data.name,
-                            cfg_guild["avatar_url"], member_count)
+            publish_changes(cfg_guild.webhook_url, embeds, guild_data.name, new_guild_data.logo_url, member_count)
             log.info(name + " - Scanning done")
             time.sleep(2)
-        time.sleep(5 * 60)
+        time.sleep(cfg.interval)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,10 @@
 # Changelog
+## Version 1.0.0 (2019-07-09)
+- Now using YAML instead of json for configuration.
+- Now announces guildhall changes.
+- Interval between scans is now configurable.
+- Removed some configurable values that made the config file more complex.
+
 ## Version 0.2.0 (2018-08-24)
 - GuildWatcher can now detect invites
     - Announces when a new character is invited
