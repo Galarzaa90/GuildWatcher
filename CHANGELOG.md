@@ -1,5 +1,5 @@
 # Changelog
-## Version 1.0.0 (Unreleased)
+## Version 1.0.0 (2019-07-09)
 - Now using YAML instead of json for configuration.
 - Now announces guildhall changes.
 - Interval between scans is now configurable.
