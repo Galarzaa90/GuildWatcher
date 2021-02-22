@@ -44,7 +44,7 @@ pip install -r requirements.txt
     * The top level `webhook_url` will be used, but if you want another guild to use a different URL, you can specify one for that guild.
     
 ## Running
-### data directory
+### The data directory
 The script saves every guild's data to a `.data` file. On the next scan, the current state of the guild is compared with the previous guild's data in order to detect the changes.
 
 The `.data` files allow the script to be able to keep track of changes between executions. Without a `.data` file, if the script was stopped and was executed an hour later, all changes that occurred in that time frame would not be detected.
@@ -64,7 +64,7 @@ or
 python -m guildwatcher
 ```
 
-## Running from docker image
+### From docker image
 In order to run the script from a docker image, you need to mount the configuration file to `/app/config.yml`. 
 
 While not required, it is highly recommended mounting a directory to store the guild data, to persist data files between executions. The data folder must be mounted to `/app/data/`.
