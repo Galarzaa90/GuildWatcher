@@ -25,6 +25,7 @@ import logging
 import pickle
 import time
 from enum import Enum
+import os.path
 
 import requests
 import tibiapy
@@ -142,7 +143,7 @@ def save_data(file, data):
     :param file: The file's path to save to
     :param data: The guild's data.
     """
-    with open(file, "wb") as f:
+    with open(os.path.join("data", file), "wb") as f:
         pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
@@ -154,7 +155,7 @@ def load_data(file):
     :rtype: tibiapy.Guild
     """
     try:
-        with open(file, "rb") as f:
+        with open(os.path.join("data", file), "rb") as f:
             return pickle.load(f)
     except ValueError:
         return None
