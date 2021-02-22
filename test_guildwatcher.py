@@ -206,8 +206,8 @@ class TestGuildWatcher(unittest.TestCase):
         self.assertEqual(changes[0].member.name, new_invite.name)
 
     def test_data_integrity(self):
-        guildwatcher.save_data(".tmp.data", self.guild)
-        saved_guild = guildwatcher.load_data(".tmp.data")
+        guildwatcher.save_data("tmp.data", self.guild)
+        saved_guild = guildwatcher.load_data("tmp.data")
 
         changes = guildwatcher.compare_guild(self.guild, saved_guild)
 
