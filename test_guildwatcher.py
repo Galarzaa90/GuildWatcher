@@ -13,6 +13,7 @@ from guildwatcher import Change, ChangeType
 
 logger = logging.getLogger(guildwatcher.__name__)
 
+
 class TestGuildWatcher(unittest.TestCase):
     def setUp(self):
         self.guild = Guild("Test Guild", "Antica")
@@ -230,6 +231,12 @@ class TestGuildWatcher(unittest.TestCase):
             Change(ChangeType.NEW_INVITE, GuildInvite("Good Guy", date=date.today())),
             Change(ChangeType.GUILDHALL_REMOVED, None, "Crystal Glance"),
             Change(ChangeType.GUILDHALL_CHANGED, None, "The Tibianic"),
+            Change(ChangeType.APPLICATIONS_CHANGE, extra=True),
+            Change(ChangeType.APPLICATIONS_CHANGE, extra=False),
+            Change(ChangeType.REMOVED_DISBAND_WARNING),
+            Change(ChangeType.NEW_DISBAND_WARNING, None, (
+                'if there are still less than four vice leaders or an insufficient amount of premium accounts in the'
+                ' leading ranks by then', datetime.date(2018, 8, 17))),
         ]
         embeds = guildwatcher.build_embeds(changes)
         import pprint

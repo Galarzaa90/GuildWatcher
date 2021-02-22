@@ -86,6 +86,8 @@ docker run \
 - Announce when a new character is invited.
 - Announce when an invitation is revoked or rejected.
 - Announce when the guildhall changes.
+- Announce when a guild's application status is changed
+- Announce when a guild is in risk of being disbanded.
 - Multiple guilds support.
 - Configurable scan times.
 - Webhook URL configurable per guild.
