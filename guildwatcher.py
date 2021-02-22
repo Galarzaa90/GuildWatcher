@@ -143,6 +143,7 @@ def save_data(file, data):
     :param file: The file's path to save to
     :param data: The guild's data.
     """
+    os.makedirs("data", exist_ok=True)
     with open(os.path.join("data", file), "wb") as f:
         pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
