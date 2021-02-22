@@ -11,14 +11,14 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 ## Installing
 ### with pip
 To install the latest version on PyPi:
-```commandline
+```shell
 pip install guildwatcher
 ```
 
 or
 
 Install the latest version from GitHub
-```commandline
+```shell
 pip install git+https://github.com/Galarzaa90/GuildWatcher.git
 ```
 
@@ -30,7 +30,7 @@ docker pull galarzaa90/guild-watcher
 
 ### with git
 You can download the files and run locally, but you will require to install dependencies yourself:
-```commandline
+```shell
 git clone https://github.com/Galarzaa90/GuildWatcher
 pip install -r requirements.txt
 ```
@@ -43,27 +43,37 @@ pip install -r requirements.txt
 1. Create a file named **config.yml** and edit it, basing it on **config-example.yml**.
     * The top level `webhook_url` will be used, but if you want another guild to use a different URL, you can specify one for that guild.
     
-## Running the script
-- `config.yml` must be in the same directory you're running the script from.
-- The script generates `.data` files, named after the guilds, these save the last state of the guild, to compare it with the current state.
+## Running
+### data directory
+The script saves every guild's data to a `.data` file. On the next scan, the current state of the guild is compared with the previous guild's data in order to detect the changes.
+
+The `.data` files allow the script to be able to keep track of changes between executions. Without a `.data` file, if the script was stopped and was executed an hour later, all changes that occurred in that time frame would not be detected.
+
+### Installed via pip or locally
+`config.yml` must be in the same directory you're running the script from.
+
 
 If installed using pip, you can run the script in one of two ways:
-```commandline
+```shell
 guildwatcher
 ```
 
 or
 
-```commandline
+```shell
 python -m guildwatcher
 ```
 
 ## Running from docker image
+In order to run the script from a docker image, you need to mount the configuration file to `/app/config.yml`. 
+
+While not required, it is highly recommended mounting a directory to store the guild data, to persist data files between executions. The data folder must be mounted to `/app/data/`.
+
 ```shell
 docker run \
     -v "$(pwd)"/config.yml:/app/config.yml \
     -v "$(pwd)"/data/:/app/data/ \
-    -rm -it galarzaa90/guild-watcher
+    --rm -it galarzaa90/guild-watcher
 ```
 
 
@@ -88,6 +98,7 @@ docker run \
 - Announce changes in guild attributes.
     - Application status
     - Disband warning
+- Granular notification settings (e.g. disable rank changes, disable title changes, etc.)
 
 ## Example
 ![image](https://user-images.githubusercontent.com/12865379/29383497-7df48300-8285-11e7-83c3-f774ad3a43a8.png)
