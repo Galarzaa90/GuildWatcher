@@ -1,6 +1,6 @@
 FROM python:3.9-slim
 
-WORKDIR /guild-watcher
+WORKDIR /app
 COPY requirements.txt .
 COPY guildwatcher.py .
 

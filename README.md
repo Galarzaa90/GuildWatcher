@@ -9,22 +9,29 @@ A discord webhook that posts guild changes (member joins, members leaves, member
 ![PyPI - License](https://img.shields.io/pypi/l/GuildWatcher.svg)
 
 ## Installing
-Install and update using pip:
+### with pip
+To install the latest version on PyPi:
 ```commandline
-pip install guildwatcher -U
+pip install guildwatcher
 ```
 
 or
 
 Install the latest version from GitHub
 ```commandline
-pip install git+https://github.com/Galarzaa90/GuildWatcher.git -U
+pip install git+https://github.com/Galarzaa90/GuildWatcher.git
 ```
 
-or
+### with docker
+```shell
+docker pull galarzaa90/guild-watcher
+```
 
-Download/Clone files, install requirements and run `guildwatcher.py`
+
+### with git
+You can download the files and run locally, but you will require to install dependencies yourself:
 ```commandline
+git clone https://github.com/Galarzaa90/GuildWatcher
 pip install -r requirements.txt
 ```
 
@@ -50,6 +57,15 @@ or
 ```commandline
 python -m guildwatcher
 ```
+
+## Running from docker image
+```shell
+docker run \
+    -v "$(pwd)"/config.yml:/app/config.yml \
+    -v "$(pwd)"/data/:/app/data/ \
+    -rm -it galarzaa90/guild-watcher
+```
+
 
 ## Current Features
 - Announces when a member joins.
