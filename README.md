@@ -2,7 +2,7 @@
 
 A discord webhook that posts guild changes (member joins, members leaves, member promoted) in a Discord channel.
 
-[![Build Status](https://travis-ci.org/Galarzaa90/GuildWatcher.svg?branch=master)](https://travis-ci.org/Galarzaa90/GuildWatcher)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Galarzaa90/GuildWatcher/Build/master)
 [![GitHub release](https://img.shields.io/github/release/Galarzaa90/GuildWatcher/all.svg)](https://github.com/Galarzaa90/GuildWatcher/releases)
 [![PyPI](https://img.shields.io/pypi/v/GuildWatcher.svg)](https://pypi.python.org/pypi/GuildWatcher/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/GuildWatcher.svg)
