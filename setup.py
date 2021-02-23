@@ -13,7 +13,7 @@ with open('README.md') as f:
 
 setup(
     name='guildwatcher',
-    version='1.1.0',
+    version='2.0.0',
     author='Allan Galarza',
     author_email="allan.galarza@gmail.com",
     description='A discord webhook to track Tibia guild changes.',
