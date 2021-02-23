@@ -50,6 +50,9 @@ CLR_INVITE_REMOVED = 0xFF6966  # Light red
 CLR_NEW_INVITE = 0x7DF589  # Lime green
 CLR_GUILDHALL_REMOVE = 0xA9A9A9  # Grey
 CLR_GUILDHALL_CHANGED = 0xFFFFFF  # White
+CLR_DISBAND_NEW = 0xE59400  # Darker orange
+CLR_DISBAND_REMOVE = 0x08CC8F  # Strong cyan/Lime green
+CLR_APPLICATIONS = 0xF5F5DC  # Beige
 
 # Change strings
 # m -> Member related to the change
@@ -63,6 +66,8 @@ FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** 
 FMT_INVITE_CHANGE = "[{m.name}]({m.url}) - Invited: **{m.date}**\n"
 FMT_GUILDHALL_CHANGED = "Guild moved to guildhall **{extra}**"
 FMT_GUILDHALL_REMOVE = "Guild no longer owns guildhall **{extra}**"
+FMT_DISBAND_REMOVE = "Guild no longer in risk of being disbanded."
+FMT_DISBAND_NEW = "Guild will be disbanded on **{extra[1]}** {extra[0]}."
 
 
 class Change:
@@ -76,7 +81,7 @@ class Change:
     :type type: ChangeType
     :type extra: Optional[Any]
     """
-    def __init__(self, _type, member, extra=None):
+    def __init__(self, _type, member=None, extra=None):
         self.member = member
         self.type = _type
         self.extra = extra
@@ -98,6 +103,9 @@ class ChangeType(Enum):
     NEW_INVITE = 9  #: New invited
     GUILDHALL_CHANGED = 10  #: Guild moved to a new guildhall.
     GUILDHALL_REMOVED = 11  #: Guild no longer has a guildhall.
+    NEW_DISBAND_WARNING = 12  #: Guild is going to be disbanded
+    REMOVED_DISBAND_WARNING = 13  #: Guild no longer in danger of being disbanded
+    APPLICATIONS_CHANGE = 14  #: The application status changed
 
 
 class ConfigGuild:
@@ -123,6 +131,7 @@ class Config:
 
     def __repr__(self):
         return "<%s webhook_url=%r guilds=%r>" % (self.__class__.__name__, self.webhook_url, self.guilds)
+
 
 def load_config():
     """Loads and validates the configuration file."""
@@ -267,6 +276,16 @@ def compare_guild(before, after):
         elif after.guildhall is None:
             log.info("Guildhall removed: %s" % before.guildhall.name)
             changes.append(Change(ChangeType.GUILDHALL_REMOVED, None, before.guildhall.name))
+    if before.disband_condition != after.disband_condition:
+        if after.disband_condition is None:
+            log.info("Guild no longer in danger of disbanding")
+            changes.append(Change(ChangeType.REMOVED_DISBAND_WARNING))
+        else:
+            log.info("Guild in danger of being disbanded: %s", after.disband_condition)
+            changes.append(Change(ChangeType.NEW_DISBAND_WARNING, extra=(after.disband_condition, after.disband_date)))
+    if before.open_applications != after.open_applications:
+        changes.append(Change(ChangeType.APPLICATIONS_CHANGE, extra=after.open_applications))
+        log.info("Guild application status changed: %s", "open" if after.open_applications else "closed")
 
     compare_members(after, before, changes)
     check_removed_members(changes, joined, removed_members)
@@ -300,8 +319,9 @@ def compare_members(after, before, changes):
                         log.info("Member promoted: %s" % member_after.name)
                         changes.append(Change(ChangeType.PROMOTED, member_after))
                 except ValueError:
-                    # This should be impossible
-                    log.error("Unexpected error: Member has a rank not present in list")
+                    # The member used to have a rank that no longer exists:
+                    # This can be due to the rank being renamed or the rank being no longer visible as it has no members
+                    pass
             # Title changed
             if member.title != member_after.title:
                 log.info("Member title changed from '%s' to '%s'" % (member.title, member_after.title))
@@ -362,14 +382,14 @@ def get_vocation_emoji(vocation):
     :rtype: str
     """
     return {
-        tibiapy.Vocation.DRUID: "\U00002744",
-        tibiapy.Vocation.ELDER_DRUID: "\U00002744",
-        tibiapy.Vocation.KNIGHT: "\U0001F6E1",
-        tibiapy.Vocation.ELITE_KNIGHT: "\U0001F6E1",
-        tibiapy.Vocation.SORCERER: "\U0001F525",
-        tibiapy.Vocation.MASTER_SORCERER: "\U0001F525",
-        tibiapy.Vocation.PALADIN: "\U0001F3F9",
-        tibiapy.Vocation.ROYAL_PALADIN: "\U0001F3F9",
+        tibiapy.Vocation.DRUID: "❄️",
+        tibiapy.Vocation.ELDER_DRUID: "❄️",
+        tibiapy.Vocation.KNIGHT: "🛡",
+        tibiapy.Vocation.ELITE_KNIGHT: "🛡",
+        tibiapy.Vocation.SORCERER: "🔥",
+        tibiapy.Vocation.MASTER_SORCERER: "🔥",
+        tibiapy.Vocation.PALADIN: "🏹",
+        tibiapy.Vocation.ROYAL_PALADIN: "🏹",
     }.get(vocation, "")
 
 
@@ -444,6 +464,15 @@ def build_embeds(changes):
         elif change.type == ChangeType.GUILDHALL_CHANGED:
             embeds.append({"color": CLR_GUILDHALL_CHANGED, "title": "Guildhall changed",
                            "description": FMT_GUILDHALL_CHANGED.format(extra=change.extra)})
+        elif change.type == ChangeType.NEW_DISBAND_WARNING:
+            embeds.append({"color": CLR_DISBAND_NEW, "title": "Guild in risk of being disbanded",
+                           "description": FMT_DISBAND_NEW.format(extra=change.extra)})
+        elif change.type == ChangeType.REMOVED_DISBAND_WARNING:
+            embeds.append({"color": CLR_DISBAND_REMOVE, "title": "Guild no longer in disband risk",
+                           "description": FMT_DISBAND_REMOVE})
+        elif change.type == ChangeType.APPLICATIONS_CHANGE:
+            embeds.append({"color": CLR_APPLICATIONS, "title": "Guild application status changed",
+                          "description": f"Applications are now {'open' if change.extra else 'closed'}."})
 
     if new_members:
         messages = split_message(new_members)
@@ -505,13 +534,14 @@ def publish_changes(url, embeds, name=None, avatar=None, new_count=0):
     current_batch = []
     current_length = 0
     for embed in embeds:
-        if current_length+len(embed["description"]) > 6000 or len(batches) == 10:
+        length = len(embed["description"]) + len(embed["title"])
+        if current_length+length > 6000 or len(current_batch) == 10:
             batches.append(current_batch)
             current_length = 0
             current_batch = []
             continue
         current_batch.append(embed)
-        current_length += len(embed["description"])
+        current_length += length
 
     batches.append(current_batch)
 
