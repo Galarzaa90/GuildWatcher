@@ -1,4 +1,12 @@
 # Changelog
+## Version 2.0.0 (2020-02-22)
+- **Breaking Change:** Dropped support for **Python 3.5**.
+- **Breaking Change:** Guild data is now read from `data` folder in the working directory.
+- Now announces when a guild has a disbandment warning
+- Now announces when guild's applications close or open.
+- Added docker support
+
+
 ## Version 1.0.0 (2019-07-09)
 - Now using YAML instead of json for configuration.
 - Now announces guildhall changes.
