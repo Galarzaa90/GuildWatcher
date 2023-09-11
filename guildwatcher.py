@@ -29,7 +29,10 @@ import os.path
 
 import requests
 import tibiapy
+from tibiapy.models import Guild
 import yaml
+from tibiapy.parsers import CharacterParser, GuildParser
+from tibiapy.urls import get_character_url, get_guild_url
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -146,15 +149,15 @@ def load_config():
     exit()
 
 
-def save_data(file, data):
+def save_data(file, data: Guild):
     """
     Saves a guild's data to a file.
     :param file: The file's path to save to
     :param data: The guild's data.
     """
     os.makedirs("data", exist_ok=True)
-    with open(os.path.join("data", file), "wb") as f:
-        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(os.path.join("data", file), "w", encoding="utf-8") as f:
+        f.write(data.model_dump_json())
 
 
 def load_data(file):
@@ -165,8 +168,8 @@ def load_data(file):
     :rtype: tibiapy.Guild
     """
     try:
-        with open(os.path.join("data", file), "rb") as f:
-            return pickle.load(f)
+        with open(os.path.join("data", file), "r", encoding="utf-8") as f:
+            return Guild.model_validate_json(f.read())
     except ValueError:
         return None
     except FileNotFoundError:
@@ -184,7 +187,7 @@ def get_character(name, tries=5):  # pragma: no cover
     :rtype: tibiapy.Character
     """
     try:
-        url = tibiapy.Character.get_url(name)
+        url = get_character_url(name)
     except UnicodeEncodeError:
         return None
 
@@ -198,7 +201,7 @@ def get_character(name, tries=5):  # pragma: no cover
         else:
             tries -= 1
             return get_character(name, tries)
-    char = tibiapy.Character.from_content(content)
+    char = CharacterParser.from_content(content)
     return char
 
 
@@ -213,7 +216,7 @@ def get_guild(name, tries=5):  # pragma: no cover
     :rtype: tibiapy.Guild
     """
     try:
-        r = requests.get(tibiapy.Guild.get_url(name))
+        r = requests.get(get_guild_url (name))
         content = r.text
     except requests.RequestException:
         if tries == 0:
@@ -222,7 +225,7 @@ def get_guild(name, tries=5):  # pragma: no cover
             tries -= 1
             return get_guild(name, tries)
 
-    guild = tibiapy.Guild.from_content(content)
+    guild = GuildParser.from_content(content)
 
     return guild
 
@@ -366,10 +369,10 @@ def compare_guild_invites(after, before, changes, joined):
                 accepted = True
                 break
         if not accepted:
-            log.info("Invite rejected or removed: " + removed_invite.name)
+            log.info(f"Invite rejected or removed: {removed_invite.name}")
             changes.append(Change(ChangeType.INVITE_REMOVED, removed_invite))
     changes += [Change(ChangeType.NEW_INVITE, i) for i in new_invites]
-    if len(new_invites) > 0:
+    if new_invites:
         log.info("New invites found: " + ",".join(m.name for m in new_invites))
 
 
@@ -382,14 +385,14 @@ def get_vocation_emoji(vocation):
     :rtype: str
     """
     return {
-        tibiapy.Vocation.DRUID: "❄️",
-        tibiapy.Vocation.ELDER_DRUID: "❄️",
-        tibiapy.Vocation.KNIGHT: "🛡",
-        tibiapy.Vocation.ELITE_KNIGHT: "🛡",
-        tibiapy.Vocation.SORCERER: "🔥",
-        tibiapy.Vocation.MASTER_SORCERER: "🔥",
-        tibiapy.Vocation.PALADIN: "🏹",
-        tibiapy.Vocation.ROYAL_PALADIN: "🏹",
+        tibiapy.enums.Vocation.DRUID: "❄️",
+        tibiapy.enums.Vocation.ELDER_DRUID: "❄️",
+        tibiapy.enums.Vocation.KNIGHT: "🛡",
+        tibiapy.enums.Vocation.ELITE_KNIGHT: "🛡",
+        tibiapy.enums.Vocation.SORCERER: "🔥",
+        tibiapy.enums.Vocation.MASTER_SORCERER: "🔥",
+        tibiapy.enums.Vocation.PALADIN: "🏹",
+        tibiapy.enums.Vocation.ROYAL_PALADIN: "🏹",
     }.get(vocation, "")
 
 
@@ -401,15 +404,15 @@ def get_vocation_abbreviation(vocation):
     :return: The emoji that represents the vocation.
     :rtype: str"""
     return {
-        tibiapy.Vocation.DRUID: "D",
-        tibiapy.Vocation.ELDER_DRUID: "ED",
-        tibiapy.Vocation.KNIGHT: "K",
-        tibiapy.Vocation.ELITE_KNIGHT: "EK",
-        tibiapy.Vocation.SORCERER: "S",
-        tibiapy.Vocation.MASTER_SORCERER: "MS",
-        tibiapy.Vocation.PALADIN: "P",
-        tibiapy.Vocation.ROYAL_PALADIN: "RP",
-        tibiapy.Vocation.NONE: "N",
+        tibiapy.enums.Vocation.DRUID: "D",
+        tibiapy.enums.Vocation.ELDER_DRUID: "ED",
+        tibiapy.enums.Vocation.KNIGHT: "K",
+        tibiapy.enums.Vocation.ELITE_KNIGHT: "EK",
+        tibiapy.enums.Vocation.SORCERER: "S",
+        tibiapy.enums.Vocation.MASTER_SORCERER: "MS",
+        tibiapy.enums.Vocation.PALADIN: "P",
+        tibiapy.enums.Vocation.ROYAL_PALADIN: "RP",
+        tibiapy.enums.Vocation.NONE: "N",
     }.get(vocation, "")
 
 
@@ -572,22 +575,22 @@ def scan_guilds():
                 log.error("Guild is missing name.")
                 time.sleep(5)
                 continue
-            guild_file = name+".data"
+            guild_file = f"{name}.json"
             guild_data = load_data(guild_file)
             if guild_data is None:
-                log.info(name + " - No previous data found. Saving current data.")
+                log.info(f"{name} - No previous data found. Saving current data.")
                 guild_data = get_guild(name)
                 if guild_data is None:
-                    log.error(name + " - Error: Guild doesn't exist")
+                    log.error(f"{name} - Error: Guild doesn't exist")
                     continue
                 save_data(guild_file, guild_data)
                 time.sleep(5)
                 continue
 
-            log.info(name + " - Scanning guild...")
+            log.info(f"{name} - Scanning guild...")
             new_guild_data = get_guild(name)
             if new_guild_data is None:
-                log.error(name + " - Error: Guild doesn't exist")
+                log.error(f"{name} - Error: Guild doesn't exist")
                 continue
             save_data(guild_file, new_guild_data)
             # Looping through members
@@ -599,7 +602,7 @@ def scan_guilds():
             changes = compare_guild(guild_data, new_guild_data)
             embeds = build_embeds(changes)
             publish_changes(cfg_guild.webhook_url, embeds, guild_data.name, new_guild_data.logo_url, member_count)
-            log.info(name + " - Scanning done")
+            log.info(f"{name} - Scanning done")
             time.sleep(2)
         time.sleep(cfg.interval)
 

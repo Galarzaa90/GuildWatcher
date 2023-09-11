@@ -1,4 +1,8 @@
 # Changelog
+## Version 3.0.0 (Unreleased)
+- **Breaking Change:** Dropped support for **Python 3.7** and lower.
+- Guild data is now stored in JSON format.
+
 ## Version 2.0.0 (2020-02-22)
 - **Breaking Change:** Dropped support for **Python 3.5**.
 - **Breaking Change:** Guild data is now read from `data` folder in the working directory.
