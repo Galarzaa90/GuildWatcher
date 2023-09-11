@@ -22,15 +22,14 @@ DEALINGS IN THE SOFTWARE.
 """
 import json
 import logging
-import pickle
+import os.path
 import time
 from enum import Enum
-import os.path
 
 import requests
 import tibiapy
-from tibiapy.models import Guild
 import yaml
+from tibiapy.models import Guild
 from tibiapy.parsers import CharacterParser, GuildParser
 from tibiapy.urls import get_character_url, get_guild_url
 
@@ -62,11 +61,11 @@ CLR_APPLICATIONS = 0xF5F5DC  # Beige
 # e -> Emoji representing the character's vocation
 # v -> Abbreviated vocation
 # extra -> Extra argument, related to the change.
-FMT_CHANGE = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e} - Rank: **{m.rank}** - Joined **{m.joined}**\n"
+FMT_CHANGE = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e} - Rank: **{m.rank}** - Joined **{m.joined_on}**\n"
 FMT_NEW_MEMBER = "[{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_NAME_CHANGE = "{extra} → [{m.name}]({m.url}) - **{m.level}** **{v}** {e}\n"
 FMT_TITLE_CHANGE = "[{m.name}]({m.url}) - {extra} → {m.title} - **{m.level}** **{v}** {e}\n"
-FMT_INVITE_CHANGE = "[{m.name}]({m.url}) - Invited: **{m.date}**\n"
+FMT_INVITE_CHANGE = "[{m.name}]({m.url}) - Invited: **{m.invited_on}**\n"
 FMT_GUILDHALL_CHANGED = "Guild moved to guildhall **{extra}**"
 FMT_GUILDHALL_REMOVE = "Guild no longer owns guildhall **{extra}**"
 FMT_DISBAND_REMOVE = "Guild no longer in risk of being disbanded."
@@ -157,7 +156,7 @@ def save_data(file, data: Guild):
     """
     os.makedirs("data", exist_ok=True)
     with open(os.path.join("data", file), "w", encoding="utf-8") as f:
-        f.write(data.model_dump_json())
+        f.write(data.model_dump_json(indent=1, by_alias=True))
 
 
 def load_data(file):
@@ -170,13 +169,11 @@ def load_data(file):
     try:
         with open(os.path.join("data", file), "r", encoding="utf-8") as f:
             return Guild.model_validate_json(f.read())
-    except ValueError:
-        return None
-    except FileNotFoundError:
+    except (ValueError, FileNotFoundError):
         return None
 
 
-def get_character(name, tries=5):  # pragma: no cover
+def get_character(name, tries=5):    # pragma: no cover
     """
     Gets information about a character from Tibia.com
     :param name: The name of the character.
@@ -198,14 +195,12 @@ def get_character(name, tries=5):  # pragma: no cover
     except requests.RequestException:
         if tries == 0:
             return None
-        else:
-            tries -= 1
-            return get_character(name, tries)
-    char = CharacterParser.from_content(content)
-    return char
+        tries -= 1
+        return get_character(name, tries)
+    return CharacterParser.from_content(content)
 
 
-def get_guild(name, tries=5):  # pragma: no cover
+def get_guild(name, tries=5):    # pragma: no cover
     """
     Gets information about a guild from Tibia.com
     :param name: The name of the guild. Case sensitive.
@@ -221,13 +216,10 @@ def get_guild(name, tries=5):  # pragma: no cover
     except requests.RequestException:
         if tries == 0:
             return None
-        else:
-            tries -= 1
-            return get_guild(name, tries)
+        tries -= 1
+        return get_guild(name, tries)
 
-    guild = GuildParser.from_content(content)
-
-    return guild
+    return GuildParser.from_content(content)
 
 
 def split_message(message):  # pragma: no cover
@@ -479,8 +471,14 @@ def build_embeds(changes):
 
     if new_members:
         messages = split_message(new_members)
-        for message in messages:
-            embeds.append({"color": CLR_NEW_MEMBER, "title": "New member", "description": message})
+        embeds.extend(
+            {
+                "color": CLR_NEW_MEMBER,
+                "title": "New member",
+                "description": message,
+            }
+            for message in messages
+        )
     if removed:
         messages = split_message(removed)
         for message in messages:
@@ -578,13 +576,13 @@ def scan_guilds():
             guild_file = f"{name}.json"
             guild_data = load_data(guild_file)
             if guild_data is None:
-                log.info(f"{name} - No previous data found. Saving current data.")
+                log.info(f"{name} - No previous data found. Saving current data...")
                 guild_data = get_guild(name)
                 if guild_data is None:
                     log.error(f"{name} - Error: Guild doesn't exist")
                     continue
                 save_data(guild_file, guild_data)
-                time.sleep(5)
+                log.info(f"{name} - Data saved.")
                 continue
 
             log.info(f"{name} - Scanning guild...")
@@ -593,6 +591,8 @@ def scan_guilds():
                 log.error(f"{name} - Error: Guild doesn't exist")
                 continue
             save_data(guild_file, new_guild_data)
+            log.info(f"{name} - Data saved.")
+            log.info(f"{name} - Detecting changes.")
             # Looping through members
             member_count_before = guild_data.member_count
             member_count = new_guild_data.member_count
